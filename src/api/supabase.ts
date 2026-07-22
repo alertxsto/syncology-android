@@ -1,8 +1,8 @@
 import {createClient} from '@supabase/supabase-js';
 import Config from 'react-native-config';
 
-const SUPABASE_URL = Config.SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = Config.SUPABASE_ANON_KEY ?? '';
+const SUPABASE_URL = Config.SUPABASE_URL || 'https://xfspbfxrlgzapmnbhewo.supabase.co';
+const SUPABASE_ANON_KEY = Config.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhmc3BiZnhybGd6YXBtbmJoZXdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNDUxMTYsImV4cCI6MjA5OTYyMTExNn0.97U0gwVfLT5rjFJzWyY4XxZAv2SuLzdYBNhEuc4jByI';
 const SUPABASE_SERVICE_KEY = Config.SUPABASE_SERVICE_KEY ?? '';
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {

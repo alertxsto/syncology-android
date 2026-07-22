@@ -21,9 +21,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Config from 'react-native-config';
 import type {FirebaseUser} from '../types';
 
-const FIREBASE_API_KEY = Config.FIREBASE_API_KEY ?? '';
-const FIREBASE_PROJECT_ID = Config.FIREBASE_PROJECT_ID ?? 'syncology';
-const WEB_CLIENT_ID = Config.GOOGLE_WEB_CLIENT_ID ?? '';
+const FIREBASE_API_KEY = Config.FIREBASE_API_KEY || 'AIzaSyCD7pAHMkUH7yTxzWbHaJ294tjdFXTA4gE';
+const FIREBASE_PROJECT_ID = Config.FIREBASE_PROJECT_ID || 'syncology';
+const WEB_CLIENT_ID = Config.GOOGLE_WEB_CLIENT_ID || '884634335184-1lbj14fcqcck8lvlloofrj3vhh0bdesp.apps.googleusercontent.com';
 
 const AUTH_KEY = '@syncology/auth_user';
 
