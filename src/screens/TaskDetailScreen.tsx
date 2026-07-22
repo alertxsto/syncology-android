@@ -1,27 +1,38 @@
-import React, {useState, useCallback} from 'react';
+/**
+ * TaskDetailScreen — Redesign 1:1 Desktop Parity
+ *
+ * Menerapkan:
+ * 1. Subtasks Interactive Checklist (Tambah & toggle subtask).
+ * 2. Diskusi & Komentar Realtime per Task.
+ * 3. Kudos Button (Apresiasi tugas).
+ * 4. Alur Kerja Setujui/Tolak Usulan & Evidence.
+ */
+
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Alert,
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  Linking,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
-import type {NativeStackNavigationProp} from '@react-navigation/native-stack'
-import type {RouteProp} from '@react-navigation/native';;
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {RouteProp} from '@react-navigation/native';
 import {taskApi} from '../api/tasks';
 import {memberApi} from '../api/members';
-import {nudgeApi} from '../api/nudges';
 import {useAuthContext} from '../store/auth';
 import {Colors} from '../theme/colors';
 import {Typography} from '../theme/typography';
 import {Spacing, Radius} from '../theme/spacing';
 import type {MainStackParamList} from '../navigation/MainNavigator';
-import type {Task, TaskStatus, Member} from '../types';
+import type {Task, TaskStatus, Member, TaskComment, TaskSubtask} from '../types';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 type Route = RouteProp<MainStackParamList, 'TaskDetail'>;
@@ -58,7 +69,11 @@ export default function TaskDetailScreen() {
   const {user} = useAuthContext();
 
   const [task, setTask] = useState<Task>(initialTask);
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [loading, setLoading] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   const assignee = members.find((m: Member) => m.uid === task.assigned_to_id);
   const reviewer = members.find((m: Member) => m.uid === task.assigned_reviewer_id);
@@ -71,6 +86,90 @@ export default function TaskDetailScreen() {
 
   const canApproveReview = isReviewer && task.status === 'under_review';
   const canApproveProposal = isLeader && task.status === 'proposed';
+
+  const loadComments = useCallback(async () => {
+    try {
+      const data = await taskApi.getComments(task.id, roomId);
+      setComments(data);
+    } catch (e) {
+      console.error('Gagal load comments:', e);
+    }
+  }, [task.id, roomId]);
+
+  useEffect(() => {
+    loadComments();
+  }, [loadComments]);
+
+  const handleToggleSubtask = async (index: number) => {
+    const updated = [...(task.subtasks ?? [])];
+    updated[index] = {...updated[index], done: !updated[index].done};
+    setTask(prev => ({...prev, subtasks: updated}));
+    try {
+      await taskApi.updateSubtasks(task.id, roomId, updated);
+    } catch (e: any) {
+      Alert.alert('Gagal update subtask', e.message);
+    }
+  };
+
+  const handleAddSubtask = async () => {
+    if (!newSubtaskTitle.trim()) return;
+    const newSub: TaskSubtask = {
+      id: Math.random().toString(36).substring(2, 9),
+      title: newSubtaskTitle.trim(),
+      done: false,
+      created_at: new Date().toISOString(),
+    };
+    const updated = [...(task.subtasks ?? []), newSub];
+    setTask(prev => ({...prev, subtasks: updated}));
+    setNewSubtaskTitle('');
+    try {
+      await taskApi.updateSubtasks(task.id, roomId, updated);
+    } catch (e: any) {
+      Alert.alert('Gagal tambah subtask', e.message);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !user) return;
+    setSubmittingComment(true);
+    try {
+      await taskApi.addComment(
+        task.id,
+        roomId,
+        newComment.trim(),
+        user.uid,
+        user.displayName || 'Pengguna',
+      );
+      setNewComment('');
+      loadComments();
+    } catch (e: any) {
+      Alert.alert('Gagal kirim komentar', e.message);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleGiveKudos = async () => {
+    if (!user) return;
+    try {
+      await taskApi.giveKudos({
+        taskId: task.id,
+        giverUid: user.uid,
+        roomId,
+      });
+      const already = (task.kudos_by ?? []).includes(user.uid);
+      if (!already) {
+        setTask(prev => ({
+          ...prev,
+          kudos_count: (prev.kudos_count ?? 0) + 1,
+          kudos_by: [...(prev.kudos_by ?? []), user.uid],
+        }));
+        Alert.alert('Apresiasi Terkirim! ⭐', 'Kudos berhasil diberikan untuk tugas ini!');
+      }
+    } catch (e: any) {
+      console.error(e);
+    }
+  };
 
   const handleApproveProposal = async () => {
     setLoading(true);
@@ -129,7 +228,7 @@ export default function TaskDetailScreen() {
         actorName: user?.displayName ?? '',
       });
       setTask(prev => ({...prev, status: 'completed'}));
-      Alert.alert('Berhasil', 'Tugas diselesaikan!');
+      Alert.alert('Berhasil 🎉', 'Tugas diselesaikan!');
     } catch (e: any) {
       Alert.alert('Gagal', e.message);
     } finally {
@@ -167,8 +266,6 @@ export default function TaskDetailScreen() {
 
   const handleNudge = async () => {
     if (!user) return;
-    const fromMember = members.find((m: Member) => m.uid === user.uid);
-    if (!fromMember) return;
     setLoading(true);
     try {
       await memberApi.sendNudge({
@@ -179,7 +276,7 @@ export default function TaskDetailScreen() {
         fromName: user.displayName,
         taskTitle: task.title,
       });
-      Alert.alert('Berhasil', 'Nudge terkirim!');
+      Alert.alert('Berhasil 🔔', 'Nudge pengingat terkirim!');
     } catch (e: any) {
       Alert.alert('Gagal', e.message);
     } finally {
@@ -211,6 +308,14 @@ export default function TaskDetailScreen() {
     );
   };
 
+  const openEvidenceUrl = () => {
+    if (task.evidence_url) {
+      Linking.openURL(task.evidence_url).catch(() => {
+        Alert.alert('Gagal', 'Tidak dapat membuka URL Evidence');
+      });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.bg0} />
@@ -218,7 +323,7 @@ export default function TaskDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-          <Text style={styles.closeBtn}>Tutup</Text>
+          <Text style={styles.closeBtnText}>Tutup</Text>
         </TouchableOpacity>
         <View style={[styles.statusBadge, {backgroundColor: STATUS_COLOR[task.status] + '22'}]}>
           <Text style={[styles.statusLabel, {color: STATUS_COLOR[task.status]}]}>
@@ -234,9 +339,9 @@ export default function TaskDetailScreen() {
           <Text style={styles.description}>{task.description}</Text>
         ) : null}
 
-        {/* Info grid */}
+        {/* Info Grid */}
         <View style={styles.infoBox}>
-          <InfoRow label="Ditugaskan ke" value={assignee?.display_name ?? task.assigned_to_id.slice(0, 8)} />
+          <InfoRow label="Ditugaskan ke" value={assignee?.display_name ?? (task.assigned_to_id ? task.assigned_to_id.slice(0, 8) : 'Open Pool')} />
           <InfoRow label="Reviewer" value={reviewer?.display_name ?? (task.assigned_reviewer_id ? task.assigned_reviewer_id.slice(0, 8) : '-')} />
           <InfoRow label="Kesulitan" value={`${task.difficulty} · ${task.weight} pts`} />
           <InfoRow label="Kategori" value={task.category} />
@@ -257,24 +362,58 @@ export default function TaskDetailScreen() {
           ) : null}
         </View>
 
-        {/* Evidence URL */}
+        {/* Kudos Action Bar */}
+        <View style={styles.kudosBar}>
+          <TouchableOpacity style={styles.kudosBtn} onPress={handleGiveKudos}>
+            <Text style={styles.kudosBtnText}>⭐ Beri Kudos ({task.kudos_count ?? 0})</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Subtasks Checklist Section */}
+        <View style={styles.sectionBox}>
+          <Text style={styles.sectionTitle}>Subtasks Checklist</Text>
+          {(task.subtasks ?? []).map((sub, idx) => (
+            <TouchableOpacity
+              key={sub.id || idx}
+              style={styles.subtaskRow}
+              onPress={() => handleToggleSubtask(idx)}>
+              <Text style={styles.checkbox}>{sub.done ? '☑' : '☐'}</Text>
+              <Text style={[styles.subtaskTitle, sub.done && styles.subtaskCompleted]}>
+                {sub.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
+          <View style={styles.addSubtaskRow}>
+            <TextInput
+              style={styles.subtaskInput}
+              value={newSubtaskTitle}
+              onChangeText={setNewSubtaskTitle}
+              placeholder="+ Tambah subtask baru..."
+              placeholderTextColor={Colors.text3}
+            />
+            <TouchableOpacity style={styles.addSubtaskBtn} onPress={handleAddSubtask}>
+              <Text style={styles.addSubtaskBtnText}>Tambah</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Evidence Section */}
         {task.evidence_url ? (
-          <View style={styles.evidenceBox}>
-            <Text style={styles.evidenceLabel}>Evidence</Text>
-            <Text style={styles.evidenceUrl} numberOfLines={3}>
+          <TouchableOpacity style={styles.evidenceBox} onPress={openEvidenceUrl}>
+            <Text style={styles.evidenceLabel}>Evidence URL ↗</Text>
+            <Text style={styles.evidenceUrl} numberOfLines={2}>
               {task.evidence_url}
             </Text>
-          </View>
+          </TouchableOpacity>
         ) : null}
 
-        {/* Action buttons */}
+        {/* Workflow Actions */}
         <View style={styles.actions}>
           {canSubmitEvidence && (
             <TouchableOpacity
               style={styles.btnPrimary}
-              onPress={() =>
-                nav.navigate('SubmitEvidence', {task, roomId})
-              }>
+              onPress={() => nav.navigate('SubmitEvidence', {task, roomId})}>
               <Text style={styles.btnPrimaryLabel}>Submit Evidence</Text>
             </TouchableOpacity>
           )}
@@ -303,7 +442,7 @@ export default function TaskDetailScreen() {
 
           {!isAssignee && task.status !== 'completed' && (
             <TouchableOpacity style={styles.btnSecondary} onPress={handleNudge} disabled={loading}>
-              <Text style={styles.btnSecondaryLabel}>Kirim Nudge</Text>
+              <Text style={styles.btnSecondaryLabel}>🔔 Kirim Nudge Pengingat</Text>
             </TouchableOpacity>
           )}
 
@@ -312,6 +451,42 @@ export default function TaskDetailScreen() {
               <Text style={styles.btnDangerLabel}>Hapus Tugas</Text>
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Comments Section */}
+        <View style={styles.sectionBox}>
+          <Text style={styles.sectionTitle}>Diskusi Komentar ({comments.length})</Text>
+
+          {comments.map(c => (
+            <View key={c.id} style={styles.commentItem}>
+              <View style={styles.commentHeader}>
+                <Text style={styles.commentAuthor}>{c.author_name}</Text>
+                <Text style={styles.commentTime}>
+                  {new Date(c.timestamp).toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </View>
+              <Text style={styles.commentText}>{c.comment_text}</Text>
+            </View>
+          ))}
+
+          <View style={styles.addCommentRow}>
+            <TextInput
+              style={styles.commentInput}
+              value={newComment}
+              onChangeText={setNewComment}
+              placeholder="Tulis komentar..."
+              placeholderTextColor={Colors.text3}
+            />
+            <TouchableOpacity
+              style={styles.sendCommentBtn}
+              onPress={handleAddComment}
+              disabled={submittingComment}>
+              <Text style={styles.sendCommentText}>Kirim</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {loading && (
@@ -323,7 +498,7 @@ export default function TaskDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: Colors.bg1},
+  root: {flex: 1, backgroundColor: Colors.bg0},
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -333,10 +508,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  closeBtn: {
+  closeBtnText: {
     fontSize: Typography.base,
-    color: Colors.blue,
-    fontWeight: Typography.medium,
+    color: Colors.blueLight,
+    fontWeight: Typography.semibold,
   },
   statusBadge: {
     borderRadius: Radius.sm,
@@ -345,7 +520,7 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: Typography.sm,
-    fontWeight: Typography.semibold,
+    fontWeight: Typography.bold,
   },
   content: {padding: Spacing.base, gap: Spacing.base, paddingBottom: 60},
   title: {
@@ -368,6 +543,81 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     gap: Spacing.xs,
   },
+  kudosBar: {
+    flexDirection: 'row',
+  },
+  kudosBtn: {
+    backgroundColor: 'rgba(234,179,8,0.15)',
+    borderWidth: 1,
+    borderColor: Colors.yellowDim,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+  },
+  kudosBtnText: {
+    color: Colors.yellow,
+    fontWeight: Typography.bold,
+    fontSize: Typography.sm,
+  },
+  sectionBox: {
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: Typography.base,
+    fontWeight: Typography.bold,
+    color: Colors.text1,
+  },
+  subtaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 4,
+  },
+  checkbox: {
+    fontSize: Typography.lg,
+    color: Colors.blueLight,
+  },
+  subtaskTitle: {
+    fontSize: Typography.sm,
+    color: Colors.text1,
+    flex: 1,
+  },
+  subtaskCompleted: {
+    textDecorationLine: 'line-through',
+    color: Colors.text3,
+  },
+  addSubtaskRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  subtaskInput: {
+    flex: 1,
+    backgroundColor: Colors.bg3,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    color: Colors.text1,
+    fontSize: Typography.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  addSubtaskBtn: {
+    backgroundColor: Colors.blue,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    justifyContent: 'center',
+  },
+  addSubtaskBtnText: {
+    color: Colors.white,
+    fontWeight: Typography.semibold,
+    fontSize: Typography.xs,
+  },
   evidenceBox: {
     backgroundColor: Colors.bg3,
     borderRadius: Radius.md,
@@ -378,15 +628,12 @@ const styles = StyleSheet.create({
   },
   evidenceLabel: {
     fontSize: Typography.xs,
-    color: Colors.text3,
-    fontWeight: Typography.semibold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: Colors.blueLight,
+    fontWeight: Typography.bold,
   },
   evidenceUrl: {
     fontSize: Typography.sm,
-    color: Colors.blueLight,
-    lineHeight: 18,
+    color: Colors.text1,
   },
   actions: {gap: Spacing.sm},
   btnPrimary: {
@@ -398,7 +645,7 @@ const styles = StyleSheet.create({
   btnPrimaryLabel: {
     color: Colors.white,
     fontSize: Typography.base,
-    fontWeight: Typography.semibold,
+    fontWeight: Typography.bold,
   },
   btnSecondary: {
     backgroundColor: Colors.bg3,
@@ -411,7 +658,7 @@ const styles = StyleSheet.create({
   btnSecondaryLabel: {
     color: Colors.text1,
     fontSize: Typography.base,
-    fontWeight: Typography.medium,
+    fontWeight: Typography.semibold,
   },
   btnDanger: {
     backgroundColor: Colors.redDim,
@@ -424,7 +671,58 @@ const styles = StyleSheet.create({
   btnDangerLabel: {
     color: Colors.red,
     fontSize: Typography.base,
+    fontWeight: Typography.bold,
+  },
+  commentItem: {
+    backgroundColor: Colors.bg3,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    gap: 2,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  commentAuthor: {
+    fontSize: Typography.xs,
+    fontWeight: Typography.bold,
+    color: Colors.blueLight,
+  },
+  commentTime: {
+    fontSize: 10,
+    color: Colors.text3,
+  },
+  commentText: {
+    fontSize: Typography.sm,
+    color: Colors.text1,
+    marginTop: 2,
+  },
+  addCommentRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  commentInput: {
+    flex: 1,
+    backgroundColor: Colors.bg3,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    color: Colors.text1,
+    fontSize: Typography.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  sendCommentBtn: {
+    backgroundColor: Colors.blue,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    justifyContent: 'center',
+  },
+  sendCommentText: {
+    color: Colors.white,
     fontWeight: Typography.semibold,
+    fontSize: Typography.sm,
   },
 });
 

@@ -1,3 +1,10 @@
+/**
+ * HomeScreen — Total Redesign 1:1 Desktop Parity
+ *
+ * Menampilkan daftar room pengguna, status aktif, statistik member,
+ * serta modal interaktif untuk Buat Room & Gabung Kode.
+ */
+
 import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
@@ -5,247 +12,114 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  TextInput,
-  Modal,
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Image,
+  Alert,
+  Linking,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {useAuthContext} from '../store/auth';
 import {roomApi} from '../api/rooms';
+import {useAuthContext} from '../store/auth';
 import {Colors} from '../theme/colors';
 import {Typography} from '../theme/typography';
 import {Spacing, Radius} from '../theme/spacing';
-import type {Room} from '../types';
 import type {MainStackParamList} from '../navigation/MainNavigator';
+import type {Room} from '../types';
+import {CreateRoomModal} from '../components/CreateRoomModal';
+import {JoinRoomModal} from '../components/JoinRoomModal';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Home'>;
 
-// ── Create Room Modal ────────────────────────────────────────────
-function CreateRoomModal({
-  visible,
-  uid,
-  displayName,
-  onClose,
-  onSuccess,
+function RoomCard({
+  room,
+  onPress,
 }: {
-  visible: boolean;
-  uid: string;
-  displayName: string;
-  onClose: () => void;
-  onSuccess: () => void;
+  room: Room;
+  onPress: () => void;
 }) {
-  const [projectName, setProjectName] = useState('');
-  const [deadline, setDeadline] = useState('');
-  const [chatUrl, setChatUrl] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const isLeader = room.my_role === 'leader';
 
-  const handleCreate = async () => {
-    if (!projectName.trim()) {
-      setError('Nama project wajib diisi');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      await roomApi.create({
-        projectName: projectName.trim(),
-        globalDeadline: deadline || null,
-        externalChatUrl: chatUrl || null,
-        uid,
-        displayName,
+  const handleOpenExternalChat = (e: any) => {
+    e.stopPropagation();
+    if (room.external_chat_url) {
+      Linking.openURL(room.external_chat_url).catch(() => {
+        Alert.alert('Gagal', 'Tidak dapat membuka URL chat eksternal');
       });
-      setProjectName('');
-      setDeadline('');
-      setChatUrl('');
-      onSuccess();
-    } catch (e: any) {
-      setError(e.message ?? 'Gagal membuat room');
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={modalStyles.backdrop}>
-        <View style={modalStyles.sheet}>
-          <Text style={modalStyles.title}>Buat Room Baru</Text>
-          {error ? <Text style={modalStyles.error}>{error}</Text> : null}
-          <Text style={modalStyles.label}>Nama Project</Text>
-          <TextInput
-            style={modalStyles.input}
-            value={projectName}
-            onChangeText={setProjectName}
-            placeholder="contoh: Website Redesign"
-            placeholderTextColor={Colors.text3}
+    <TouchableOpacity
+      style={cardStyles.card}
+      onPress={onPress}
+      activeOpacity={0.8}>
+      <View style={cardStyles.topRow}>
+        <View style={cardStyles.titleContainer}>
+          <View
+            style={[
+              cardStyles.statusDot,
+              {backgroundColor: room.is_active ? Colors.green : Colors.text3},
+            ]}
           />
-          <Text style={modalStyles.label}>Deadline Global (opsional)</Text>
-          <TextInput
-            style={modalStyles.input}
-            value={deadline}
-            onChangeText={setDeadline}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={Colors.text3}
-          />
-          <Text style={modalStyles.label}>External Chat URL (opsional)</Text>
-          <TextInput
-            style={modalStyles.input}
-            value={chatUrl}
-            onChangeText={setChatUrl}
-            placeholder="https://..."
-            placeholderTextColor={Colors.text3}
-            autoCapitalize="none"
-          />
-          <View style={modalStyles.actions}>
-            <TouchableOpacity style={modalStyles.btnCancel} onPress={onClose}>
-              <Text style={modalStyles.btnCancelLabel}>Batal</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[modalStyles.btnPrimary, loading && {opacity: 0.5}]}
-              onPress={handleCreate}
-              disabled={loading}>
-              {loading ? (
-                <ActivityIndicator color={Colors.white} size="small" />
-              ) : (
-                <Text style={modalStyles.btnPrimaryLabel}>Buat Room</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-// ── Join Room Modal ──────────────────────────────────────────────
-function JoinRoomModal({
-  visible,
-  uid,
-  displayName,
-  onClose,
-  onSuccess,
-}: {
-  visible: boolean;
-  uid: string;
-  displayName: string;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleJoin = async () => {
-    if (code.trim().length < 4) {
-      setError('Kode room tidak valid');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      await roomApi.join({roomCode: code.trim(), uid, displayName});
-      setCode('');
-      onSuccess();
-    } catch (e: any) {
-      setError(e.message ?? 'Gagal bergabung');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={modalStyles.backdrop}>
-        <View style={modalStyles.sheet}>
-          <Text style={modalStyles.title}>Gabung dengan Kode</Text>
-          {error ? <Text style={modalStyles.error}>{error}</Text> : null}
-          <Text style={modalStyles.label}>Kode Room</Text>
-          <TextInput
-            style={[modalStyles.input, {letterSpacing: 4, textAlign: 'center', fontSize: Typography.lg}]}
-            value={code}
-            onChangeText={t => setCode(t.toUpperCase())}
-            placeholder="ABC123"
-            placeholderTextColor={Colors.text3}
-            maxLength={8}
-            autoCapitalize="characters"
-          />
-          <View style={modalStyles.actions}>
-            <TouchableOpacity style={modalStyles.btnCancel} onPress={onClose}>
-              <Text style={modalStyles.btnCancelLabel}>Batal</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[modalStyles.btnPrimary, loading && {opacity: 0.5}]}
-              onPress={handleJoin}
-              disabled={loading}>
-              {loading ? (
-                <ActivityIndicator color={Colors.white} size="small" />
-              ) : (
-                <Text style={modalStyles.btnPrimaryLabel}>Gabung</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-// ── Room Card ────────────────────────────────────────────────────
-function RoomCard({room, onPress}: {room: Room; onPress: () => void}) {
-  const isActive = room.is_active !== false;
-  const role = room.my_role ?? 'member';
-
-  return (
-    <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.75}>
-      <View style={cardStyles.row}>
-        <Text style={cardStyles.name} numberOfLines={1}>
-          {room.project_name}
-        </Text>
-        <View style={[cardStyles.badge, role === 'leader' && cardStyles.badgeLeader]}>
-          <Text style={cardStyles.badgeLabel}>{role}</Text>
-        </View>
-      </View>
-      <View style={cardStyles.metaRow}>
-        <Text style={cardStyles.metaLabel}>Kode</Text>
-        <Text style={cardStyles.metaCode}>{room.room_code}</Text>
-      </View>
-      {room.global_deadline ? (
-        <View style={cardStyles.metaRow}>
-          <Text style={cardStyles.metaLabel}>Deadline</Text>
-          <Text style={cardStyles.metaValue}>
-            {room.global_deadline.slice(0, 10)}
+          <Text style={cardStyles.projectName} numberOfLines={1}>
+            {room.project_name}
           </Text>
         </View>
-      ) : null}
-      <View style={cardStyles.statusRow}>
-        <View
-          style={[
-            cardStyles.dot,
-            {backgroundColor: isActive ? Colors.green : Colors.text3},
-          ]}
-        />
-        <Text style={cardStyles.statusLabel}>{isActive ? 'Active' : 'Ended'}</Text>
+        <View style={cardStyles.codeBadge}>
+          <Text style={cardStyles.codeText}>{room.room_code}</Text>
+        </View>
+      </View>
+
+      <View style={cardStyles.metaRow}>
+        <View style={cardStyles.roleTag}>
+          <Text style={[cardStyles.roleText, isLeader && {color: Colors.blueLight}]}>
+            {isLeader ? 'Leader' : 'Member'}
+          </Text>
+        </View>
+
+        {room.global_deadline ? (
+          <Text style={cardStyles.deadlineText}>
+            Target:{' '}
+            {new Date(room.global_deadline).toLocaleDateString('id-ID', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}
+          </Text>
+        ) : (
+          <Text style={cardStyles.deadlineText}>Tanpa Target Deadline</Text>
+        )}
+      </View>
+
+      <View style={cardStyles.footerRow}>
+        <Text style={cardStyles.statusText}>
+          {room.is_active ? 'Proyek Aktif' : 'Telah Diarsipkan'}
+        </Text>
+
+        {room.external_chat_url ? (
+          <TouchableOpacity
+            style={cardStyles.chatLinkBtn}
+            onPress={handleOpenExternalChat}>
+            <Text style={cardStyles.chatLinkText}>Chat Link ↗</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
 }
 
-// ── HomeScreen ───────────────────────────────────────────────────
 export default function HomeScreen() {
   const nav = useNavigation<Nav>();
   const {user, logout} = useAuthContext();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [showJoin, setShowJoin] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
   const loadRooms = useCallback(async () => {
     if (!user) return;
@@ -253,7 +127,7 @@ export default function HomeScreen() {
       const data = await roomApi.listMyRooms(user.uid);
       setRooms(data);
     } catch (e: any) {
-      Alert.alert('Gagal memuat rooms', e.message);
+      Alert.alert('Gagal memuat room', e.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -271,17 +145,37 @@ export default function HomeScreen() {
     ]);
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.root}>
-        <ActivityIndicator
-          color={Colors.blue}
-          size="large"
-          style={{marginTop: 60}}
-        />
-      </SafeAreaView>
-    );
-  }
+  const handleCreateRoom = async (data: {
+    projectName: string;
+    globalDeadline: string | null;
+    externalChatUrl: string | null;
+  }) => {
+    if (!user) return;
+    const newRoom = await roomApi.create({
+      projectName: data.projectName,
+      globalDeadline: data.globalDeadline,
+      externalChatUrl: data.externalChatUrl,
+      uid: user.uid,
+      displayName: user.displayName || 'Pengguna',
+    });
+    await loadRooms();
+    nav.navigate('Room', {room: newRoom});
+  };
+
+  const handleJoinRoom = async (code: string) => {
+    if (!user) return;
+    const joinedRoom = await roomApi.join({
+      roomCode: code,
+      uid: user.uid,
+      displayName: user.displayName || 'Pengguna',
+    });
+    await loadRooms();
+    nav.navigate('Room', {room: joinedRoom});
+  };
+
+  const displayName = user?.displayName?.trim()
+    ? user.displayName.trim().split(' ')[0]
+    : 'Pengguna';
 
   return (
     <SafeAreaView style={styles.root}>
@@ -289,90 +183,86 @@ export default function HomeScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={{flexDirection: 'row', alignItems: 'center', gap: Spacing.sm}}>
+        <View style={styles.headerUser}>
           <Image
             source={require('../assets/logo.png')}
-            style={{width: 32, height: 32}}
+            style={styles.logo}
             resizeMode="contain"
           />
           <View>
-            <Text style={styles.greeting}>
-              Halo, {user?.displayName?.trim() ? user.displayName.trim().split(' ')[0] : 'kamu'}
-            </Text>
-            <Text style={styles.headerSub}>
-              {rooms.length} room aktif
-            </Text>
+            <Text style={styles.greeting}>Halo, {displayName}</Text>
+            <Text style={styles.headerSub}>{rooms.length} proyek aktif</Text>
           </View>
         </View>
+
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutLabel}>Keluar</Text>
+          <Text style={styles.logoutText}>Keluar</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Action buttons */}
-      <View style={styles.actions}>
+      {/* Hero Quick Action Bar */}
+      <View style={styles.heroActionBar}>
         <TouchableOpacity
-          style={styles.btnPrimary}
-          onPress={() => setShowCreate(true)}>
-          <Text style={styles.btnPrimaryLabel}>+ Buat Room</Text>
+          style={styles.btnCreate}
+          onPress={() => setShowCreateModal(true)}
+          activeOpacity={0.85}>
+          <Text style={styles.btnCreateLabel}>+ Buat Room Baru</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.btnSecondary}
-          onPress={() => setShowJoin(true)}>
-          <Text style={styles.btnSecondaryLabel}>Gabung Kode</Text>
+          style={styles.btnJoin}
+          onPress={() => setShowJoinModal(true)}
+          activeOpacity={0.85}>
+          <Text style={styles.btnJoinLabel}>Gabung Kode</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Room list */}
-      <FlatList
-        data={rooms}
-        keyExtractor={r => r.id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              loadRooms();
-            }}
-            tintColor={Colors.blue}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>Belum ada room</Text>
-            <Text style={styles.emptyBody}>
-              Buat room baru atau minta kode dari leader tim.
-            </Text>
-          </View>
-        }
-        renderItem={({item}) => (
-          <RoomCard
-            room={item}
-            onPress={() => nav.navigate('Room', {room: item})}
-          />
-        )}
-      />
+      {/* Room List */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={Colors.blue} size="large" />
+        </View>
+      ) : (
+        <FlatList
+          data={rooms}
+          keyExtractor={r => r.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                loadRooms();
+              }}
+              tintColor={Colors.blue}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyTitle}>Belum ada Room Proyek</Text>
+              <Text style={styles.emptySub}>
+                Buat room baru sebagai Leader atau minta kode unik 6-karakter dari temanmu untuk bergabung!
+              </Text>
+            </View>
+          }
+          renderItem={({item}) => (
+            <RoomCard
+              room={item}
+              onPress={() => nav.navigate('Room', {room: item})}
+            />
+          )}
+        />
+      )}
 
+      {/* Modals */}
       <CreateRoomModal
-        visible={showCreate}
-        uid={user?.uid ?? ''}
-        displayName={user?.displayName ?? ''}
-        onClose={() => setShowCreate(false)}
-        onSuccess={() => {
-          setShowCreate(false);
-          loadRooms();
-        }}
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateRoom}
       />
       <JoinRoomModal
-        visible={showJoin}
-        uid={user?.uid ?? ''}
-        displayName={user?.displayName ?? ''}
-        onClose={() => setShowJoin(false)}
-        onSuccess={() => {
-          setShowJoin(false);
-          loadRooms();
-        }}
+        visible={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        onSubmit={handleJoinRoom}
       />
     </SafeAreaView>
   );
@@ -385,85 +275,100 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.base,
-    paddingBottom: Spacing.md,
+    paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+  headerUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  logo: {
+    width: 34,
+    height: 34,
+  },
   greeting: {
-    fontSize: Typography.xl,
+    fontSize: Typography.base,
     fontWeight: Typography.bold,
     color: Colors.text1,
-    letterSpacing: -0.3,
   },
   headerSub: {
-    fontSize: Typography.sm,
+    fontSize: Typography.xs,
     color: Colors.text3,
-    marginTop: 2,
   },
   logoutBtn: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.md,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.bg3,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  logoutLabel: {
-    fontSize: Typography.sm,
-    color: Colors.text2,
+  logoutText: {
+    fontSize: Typography.xs,
+    color: Colors.red,
+    fontWeight: Typography.semibold,
   },
-  actions: {
+  heroActionBar: {
     flexDirection: 'row',
+    padding: Spacing.base,
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.base,
   },
-  btnPrimary: {
+  btnCreate: {
     flex: 1,
     backgroundColor: Colors.blue,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
+    elevation: 3,
   },
-  btnPrimaryLabel: {
+  btnCreateLabel: {
     color: Colors.white,
     fontSize: Typography.base,
-    fontWeight: Typography.semibold,
+    fontWeight: Typography.bold,
   },
-  btnSecondary: {
+  btnJoin: {
     flex: 1,
     backgroundColor: Colors.bg3,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.borderStrong,
   },
-  btnSecondaryLabel: {
+  btnJoinLabel: {
     color: Colors.text1,
     fontSize: Typography.base,
-    fontWeight: Typography.medium,
+    fontWeight: Typography.semibold,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   listContent: {
     padding: Spacing.base,
-    gap: Spacing.md,
+    paddingTop: 0,
+    gap: Spacing.sm,
     paddingBottom: 40,
   },
-  empty: {
+  emptyContainer: {
     alignItems: 'center',
     paddingTop: 60,
-    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
   },
   emptyTitle: {
     fontSize: Typography.lg,
-    fontWeight: Typography.semibold,
-    color: Colors.text2,
+    fontWeight: Typography.bold,
+    color: Colors.text1,
+    marginBottom: Spacing.xs,
   },
-  emptyBody: {
-    fontSize: Typography.base,
+  emptySub: {
+    fontSize: Typography.sm,
     color: Colors.text3,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
   },
 });
 
@@ -474,149 +379,83 @@ const cardStyles = StyleSheet.create({
     padding: Spacing.base,
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
-  row: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.xs,
   },
-  name: {
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     flex: 1,
-    fontSize: Typography.md,
-    fontWeight: Typography.semibold,
-    color: Colors.text1,
-    marginRight: Spacing.sm,
   },
-  badge: {
-    backgroundColor: Colors.bg4,
-    borderRadius: Radius.sm,
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  projectName: {
+    fontSize: Typography.base,
+    fontWeight: Typography.bold,
+    color: Colors.text1,
+    flex: 1,
+  },
+  codeBadge: {
+    backgroundColor: Colors.bg3,
     paddingHorizontal: 8,
     paddingVertical: 2,
-  },
-  badgeLeader: {
-    backgroundColor: 'rgba(59,130,246,0.15)',
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.3)',
+    borderColor: Colors.border,
   },
-  badgeLabel: {
+  codeText: {
     fontSize: Typography.xs,
-    color: Colors.text2,
-    fontWeight: Typography.medium,
+    fontFamily: 'monospace',
+    color: Colors.blueLight,
+    fontWeight: Typography.semibold,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    justifyContent: 'space-between',
   },
-  metaLabel: {
-    fontSize: Typography.xs,
-    color: Colors.text3,
-    width: 56,
-  },
-  metaCode: {
-    fontSize: Typography.sm,
-    color: Colors.blueLight,
-    fontFamily: 'monospace',
-    fontWeight: Typography.semibold,
-    letterSpacing: 1,
-  },
-  metaValue: {
-    fontSize: Typography.sm,
-    color: Colors.text2,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginTop: Spacing.xs,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusLabel: {
-    fontSize: Typography.xs,
-    color: Colors.text3,
-  },
-});
-
-const modalStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: Colors.bg2,
-    borderTopLeftRadius: Radius['2xl'],
-    borderTopRightRadius: Radius['2xl'],
-    padding: Spacing['2xl'],
-    paddingBottom: 40,
-    borderTopWidth: 1,
-    borderColor: Colors.border,
-    gap: Spacing.sm,
-  },
-  title: {
-    fontSize: Typography.xl,
-    fontWeight: Typography.bold,
-    color: Colors.text1,
-    marginBottom: Spacing.sm,
-  },
-  label: {
-    fontSize: Typography.sm,
-    color: Colors.text2,
-    fontWeight: Typography.medium,
-  },
-  input: {
-    backgroundColor: Colors.bg3,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    color: Colors.text1,
-    fontSize: Typography.base,
-    marginBottom: Spacing.xs,
-  },
-  error: {
-    color: Colors.red,
-    fontSize: Typography.sm,
-    backgroundColor: Colors.redDim,
+  roleTag: {
+    backgroundColor: 'rgba(59,130,246,0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     borderRadius: Radius.sm,
-    padding: Spacing.sm,
   },
-  actions: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginTop: Spacing.base,
-  },
-  btnCancel: {
-    flex: 1,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.bg4,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  btnCancelLabel: {
+  roleText: {
+    fontSize: Typography.xs,
     color: Colors.text2,
-    fontSize: Typography.base,
-    fontWeight: Typography.medium,
+    fontWeight: Typography.semibold,
   },
-  btnPrimary: {
-    flex: 1,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.md,
-    backgroundColor: Colors.blue,
+  deadlineText: {
+    fontSize: Typography.xs,
+    color: Colors.text3,
+  },
+  footerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
   },
-  btnPrimaryLabel: {
-    color: Colors.white,
-    fontSize: Typography.base,
+  statusText: {
+    fontSize: Typography.xs,
+    color: Colors.text3,
+  },
+  chatLinkBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  chatLinkText: {
+    fontSize: Typography.xs,
+    color: Colors.blueLight,
     fontWeight: Typography.semibold,
   },
 });

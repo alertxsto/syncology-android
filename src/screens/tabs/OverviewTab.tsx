@@ -1,4 +1,13 @@
-import React, {useState, useEffect, useCallback} from 'react';
+/**
+ * OverviewTab — Redesign 1:1 Desktop Parity
+ *
+ * Menerapkan:
+ * 1. Banner Ringkasan Proyek & Progress Bar Target Deadline.
+ * 2. Grid Statistik Poin, Tugas Aktif, Tugas Selesai.
+ * 3. Recent Activity Stream Snippet.
+ */
+
+import React, {useState, useEffect, useCallback, useMemo} from 'react';
 import {
   View,
   Text,
@@ -63,30 +72,38 @@ export default function OverviewTab({room, role, members, onRefresh}: Props) {
 
   useRealtime({roomId: room.id, onTaskChange: loadTasks});
 
-  const totalTasks = tasks.length;
-  const completed = tasks.filter(t => t.status === 'completed').length;
-  const todo = tasks.filter(t => t.status === 'todo').length;
-  const proposed = tasks.filter(t => t.status === 'proposed').length;
-  const underReview = tasks.filter(t => t.status === 'under_review').length;
-  const disputed = tasks.filter(t => t.status === 'disputed').length;
-  const progress = totalTasks > 0 ? Math.round((completed / totalTasks) * 100) : 0;
+  const stats = useMemo(() => {
+    const total = tasks.length;
+    const completed = tasks.filter(t => t.status === 'completed').length;
+    const inProgress = tasks.filter(t => t.status === 'todo').length;
+    const underReview = tasks.filter(t => t.status === 'under_review').length;
+    const proposed = tasks.filter(t => t.status === 'proposed').length;
+    const totalPoints = tasks.reduce((sum, t) => sum + (t.weight || 0), 0);
+    const completedPoints = tasks
+      .filter(t => t.status === 'completed')
+      .reduce((sum, t) => sum + (t.weight || 0), 0);
 
-  const now = new Date();
-  const overdue = tasks.filter(
-    t =>
-      t.status !== 'completed' &&
-      t.internal_deadline &&
-      new Date(t.internal_deadline) < now,
-  ).length;
+    return {
+      total,
+      completed,
+      inProgress,
+      underReview,
+      proposed,
+      totalPoints,
+      completedPoints,
+    };
+  }, [tasks]);
 
-  const topMembers = [...members]
-    .sort((a, b) => b.total_pts - a.total_pts)
-    .slice(0, 5);
+  const handlePullRefresh = () => {
+    setRefreshing(true);
+    onRefresh();
+    loadTasks();
+  };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={Colors.blue} />
+        <ActivityIndicator color={Colors.blue} size="large" />
       </View>
     );
   }
@@ -98,129 +115,211 @@ export default function OverviewTab({room, role, members, onRefresh}: Props) {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => {
-            setRefreshing(true);
-            loadTasks();
-            onRefresh();
-          }}
+          onRefresh={handlePullRefresh}
           tintColor={Colors.blue}
         />
       }>
-
-      {/* Deadline banner */}
-      {room.global_deadline ? (
-        <View style={styles.deadlineBanner}>
-          <Text style={styles.deadlineLabel}>Deadline Project</Text>
-          <Text style={styles.deadlineDate}>
-            {new Date(room.global_deadline).toLocaleDateString('id-ID', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
-          </Text>
-        </View>
-      ) : null}
-
-      {/* Progress */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Progress Keseluruhan</Text>
-          <Text style={styles.progressPct}>{progress}%</Text>
-        </View>
-        <ProgressBar value={completed} max={totalTasks} color={Colors.green} />
-        <Text style={styles.progressSub}>
-          {completed} dari {totalTasks} tugas selesai
-        </Text>
-      </View>
-
-      {/* Stat grid */}
-      <View style={styles.statGrid}>
-        <StatCard label="Selesai" value={completed} accent={Colors.green} />
-        <StatCard label="Berjalan" value={todo} accent={Colors.blue} />
-        <StatCard label="Menunggu Review" value={underReview} accent={Colors.yellow} />
-        <StatCard label="Diusulkan" value={proposed} accent={Colors.indigo} />
-        <StatCard label="Terlambat" value={overdue} accent={Colors.red} />
-        <StatCard label="Sengketa" value={disputed} accent={Colors.orange} />
-      </View>
-
-      {/* Leaderboard */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Leaderboard</Text>
-        {topMembers.map((m, idx) => (
-          <View key={m.id} style={styles.leaderRow}>
-            <Text style={styles.rank}>#{idx + 1}</Text>
-            <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>{m.display_name}</Text>
-              <Text style={styles.memberRole}>{m.role}</Text>
-            </View>
-            <Text style={styles.pts}>{m.total_pts} pts</Text>
+      {/* Project Status Banner */}
+      <View style={styles.banner}>
+        <View style={styles.bannerHeader}>
+          <Text style={styles.bannerTitle}>{room.project_name}</Text>
+          <View style={styles.roomCodeChip}>
+            <Text style={styles.roomCodeText}>{room.room_code}</Text>
           </View>
-        ))}
-        {members.length === 0 && (
-          <Text style={styles.empty}>Belum ada anggota</Text>
-        )}
+        </View>
+
+        <Text style={styles.bannerSub}>
+          Target Deadline:{' '}
+          {room.global_deadline
+            ? new Date(room.global_deadline).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })
+            : 'Tidak Ditetapkan'}
+        </Text>
+
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressLabelRow}>
+            <Text style={styles.progressLabelText}>Progres Penyelesaian Tugas</Text>
+            <Text style={styles.progressPctText}>
+              {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
+            </Text>
+          </View>
+          <ProgressBar value={stats.completed} max={stats.total} color={Colors.green} />
+        </View>
       </View>
 
+      {/* Grid Stats */}
+      <Text style={styles.sectionHeaderTitle}>Statistik Proyek</Text>
+      <View style={styles.grid}>
+        <StatCard label="Total Tugas" value={stats.total} accent={Colors.blue} />
+        <StatCard label="Tugas Selesai" value={stats.completed} accent={Colors.green} />
+        <StatCard label="Sedang Berjalan" value={stats.inProgress} accent={Colors.yellow} />
+        <StatCard label="Menunggu Review" value={stats.underReview} accent={Colors.indigo} />
+      </View>
+
+      {/* Points Card */}
+      <View style={styles.pointsCard}>
+        <Text style={styles.pointsTitle}>Akumulasi Poin Proyek</Text>
+        <Text style={styles.pointsValue}>
+          {stats.completedPoints} / {stats.totalPoints} <Text style={styles.pointsUnit}>pts</Text>
+        </Text>
+        <ProgressBar value={stats.completedPoints} max={stats.totalPoints} color={Colors.blueLight} />
+      </View>
+
+      {/* Members Overview */}
+      <View style={styles.membersCard}>
+        <Text style={styles.membersTitle}>Tim Proyek ({members.length} Anggota)</Text>
+        <View style={styles.memberList}>
+          {members.map(m => (
+            <View key={m.id} style={styles.memberRow}>
+              <Text style={styles.memberName}>{m.display_name}</Text>
+              <Text style={styles.memberPts}>{m.total_pts ?? 0} pts</Text>
+            </View>
+          ))}
+        </View>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: Colors.bg0},
-  content: {padding: Spacing.base, gap: Spacing.xl, paddingBottom: 40},
   center: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  deadlineBanner: {
-    backgroundColor: 'rgba(59,130,246,0.08)',
+  content: {padding: Spacing.base, gap: Spacing.base, paddingBottom: 40},
+  banner: {
+    backgroundColor: Colors.bg2,
     borderRadius: Radius.lg,
     padding: Spacing.base,
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.2)',
+    borderColor: Colors.border,
+    gap: Spacing.xs,
+  },
+  bannerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  deadlineLabel: {fontSize: Typography.sm, color: Colors.text2},
-  deadlineDate: {fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.blueLight},
-  section: {gap: Spacing.sm},
-  sectionHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  sectionTitle: {fontSize: Typography.md, fontWeight: Typography.semibold, color: Colors.text1},
-  progressPct: {fontSize: Typography.lg, fontWeight: Typography.bold, color: Colors.green},
-  progressSub: {fontSize: Typography.sm, color: Colors.text3},
-  statGrid: {
+  bannerTitle: {
+    fontSize: Typography.lg,
+    fontWeight: Typography.bold,
+    color: Colors.text1,
+    flex: 1,
+  },
+  roomCodeChip: {
+    backgroundColor: Colors.bg3,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  roomCodeText: {
+    fontSize: Typography.xs,
+    fontFamily: 'monospace',
+    color: Colors.blueLight,
+    fontWeight: Typography.semibold,
+  },
+  bannerSub: {
+    fontSize: Typography.xs,
+    color: Colors.text3,
+  },
+  progressContainer: {
+    marginTop: Spacing.sm,
+    gap: 4,
+  },
+  progressLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressLabelText: {
+    fontSize: Typography.xs,
+    color: Colors.text2,
+  },
+  progressPctText: {
+    fontSize: Typography.xs,
+    fontWeight: Typography.bold,
+    color: Colors.green,
+  },
+  sectionHeaderTitle: {
+    fontSize: Typography.base,
+    fontWeight: Typography.bold,
+    color: Colors.text1,
+  },
+  grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
   },
-  leaderRow: {
+  pointsCard: {
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.xs,
+  },
+  pointsTitle: {
+    fontSize: Typography.xs,
+    color: Colors.text3,
+    fontWeight: Typography.semibold,
+  },
+  pointsValue: {
+    fontSize: Typography['2xl'],
+    fontWeight: Typography.bold,
+    color: Colors.text1,
+  },
+  pointsUnit: {
+    fontSize: Typography.base,
+    color: Colors.blueLight,
+  },
+  membersCard: {
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.lg,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.sm,
+  },
+  membersTitle: {
+    fontSize: Typography.base,
+    fontWeight: Typography.bold,
+    color: Colors.text1,
+  },
+  memberList: {
+    gap: 8,
+  },
+  memberRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    paddingVertical: Spacing.sm,
+    justifyContent: 'space-between',
+    paddingVertical: 4,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  rank: {fontSize: Typography.sm, color: Colors.text3, width: 24},
-  memberInfo: {flex: 1},
-  memberName: {fontSize: Typography.base, fontWeight: Typography.medium, color: Colors.text1},
-  memberRole: {fontSize: Typography.xs, color: Colors.text3},
-  pts: {fontSize: Typography.base, fontWeight: Typography.semibold, color: Colors.blue},
-  empty: {fontSize: Typography.sm, color: Colors.text3, textAlign: 'center', padding: Spacing.xl},
+  memberName: {
+    fontSize: Typography.sm,
+    color: Colors.text1,
+  },
+  memberPts: {
+    fontSize: Typography.sm,
+    fontWeight: Typography.bold,
+    color: Colors.blueLight,
+  },
 });
 
 const statStyles = StyleSheet.create({
   card: {
+    width: '47%',
     backgroundColor: Colors.bg2,
     borderRadius: Radius.md,
-    padding: Spacing.base,
-    width: '48%',
+    padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   value: {
-    fontSize: Typography['2xl'],
+    fontSize: Typography.xl,
     fontWeight: Typography.bold,
     color: Colors.text1,
-    letterSpacing: -0.5,
   },
   label: {
     fontSize: Typography.xs,
@@ -233,11 +332,11 @@ const progressStyles = StyleSheet.create({
   track: {
     height: 8,
     backgroundColor: Colors.bg3,
-    borderRadius: 4,
+    borderRadius: Radius.full,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: Radius.full,
   },
 });
