@@ -34,7 +34,9 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{headerShown: false, animation: 'fade'}}>
+      <Stack.Navigator
+        key={user ? 'authed-stack' : 'unauthed-stack'}
+        screenOptions={{headerShown: false, animation: 'fade'}}>
         {user ? (
           <Stack.Screen name="Main" component={MainNavigator} />
         ) : (

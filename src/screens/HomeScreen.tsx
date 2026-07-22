@@ -297,7 +297,7 @@ export default function HomeScreen() {
           />
           <View>
             <Text style={styles.greeting}>
-              Halo, {user?.displayName?.split(' ')[0] ?? 'kamu'}
+              Halo, {user?.displayName?.trim() ? user.displayName.trim().split(' ')[0] : 'kamu'}
             </Text>
             <Text style={styles.headerSub}>
               {rooms.length} room aktif
