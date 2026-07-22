@@ -73,3 +73,10 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Secrets — jangan commit
+.env
+.env.local
+.env.production
+android/app/google-services.json
+ios/GoogleService-Info.plist

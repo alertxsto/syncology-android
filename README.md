@@ -1,97 +1,86 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Syncology Android
 
-# Getting Started
+Aplikasi Android native untuk Syncology — platform manajemen tugas tim berbasis akuntabilitas.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+Dibangun dengan React Native 0.86, menggunakan backend Supabase yang sama persis dengan versi desktop (Tauri/Rust).
 
-## Step 1: Start Metro
+---
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Struktur Project
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+```
+syncology-android/
+├── src/
+│   ├── api/           — Supabase API layer (menggantikan Rust commands)
+│   ├── screens/       — Semua screens dan tabs
+│   ├── navigation/    — AppNavigator, MainNavigator, RoomTabNavigator
+│   ├── store/         — AuthContext (global auth state)
+│   ├── hooks/         — useRealtime (Supabase realtime)
+│   ├── theme/         — colors, typography, spacing
+│   └── types/         — TypeScript types (identik dengan desktop)
+└── android/           — Native Android project
+```
 
-```sh
-# Using npm
+---
+
+## Setup Sebelum Build
+
+### 1. Download google-services.json
+
+1. Buka Firebase Console -> Project `syncology`
+2. Project Settings -> Your apps -> Tambahkan Android app
+3. Package name: `com.syncologyandroid`
+4. Register app -> Download `google-services.json`
+5. Taruh file di `android/app/google-services.json`
+
+### 2. Aktifkan Google Sign-In di Firebase Console
+
+Authentication -> Sign-in method -> Google -> Enable
+
+### 3. Ambil SHA-1 debug fingerprint
+
+```bash
+cd android
+./gradlew signingReport
+```
+
+Tambahkan SHA-1 tersebut di Firebase Console -> Project Settings -> Android app.
+
+### 4. Ambil Web Client ID
+
+Firebase Console -> Authentication -> Sign-in method -> Google -> Copy "Web client ID"
+
+Paste ke `src/api/auth.ts` variabel `WEB_CLIENT_ID`.
+
+---
+
+## Jalankan Aplikasi
+
+```bash
+npm install --legacy-peer-deps
+
+# Start Metro bundler
 npm start
 
-# OR using Yarn
-yarn start
-```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
+# Run di Android
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+---
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## Fitur
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+| Fitur | Status |
+|---|---|
+| Login Google native (bukan browser popup) | Siap |
+| Daftar rooms, buat/join room | Siap |
+| Overview (stats, progress, leaderboard) | Siap |
+| Tasks (filter, detail, approve/reject) | Siap |
+| Usulkan tugas baru | Siap |
+| Submit evidence | Siap |
+| Chat realtime | Siap |
+| Ledger (papan skor) | Siap |
+| Activity log | Siap |
+| Room info dan member management | Siap |
+| Member profile dan statistik | Siap |
+| Supabase Realtime live updates | Siap |
