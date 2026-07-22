@@ -30,6 +30,8 @@ import {useAuthContext} from '../store/auth';
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Room'>;
 type Route = RouteProp<MainStackParamList, 'Room'>;
 
+import {RoomRealtimeProvider} from '../store/RoomRealtimeContext';
+
 export default function RoomScreen() {
   const nav = useNavigation<Nav>();
   const route = useRoute<Route>();
@@ -74,48 +76,50 @@ export default function RoomScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.bg0} />
+    <RoomRealtimeProvider roomId={room.id}>
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.bg0} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => nav.goBack()}
-          hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-          <Text style={styles.backArrow}>{'<'}</Text>
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.roomName} numberOfLines={1}>
-            {room.project_name}
-          </Text>
-          <View style={styles.headerMeta}>
-            <View
-              style={[
-                styles.statusDot,
-                {backgroundColor: room.is_active ? Colors.green : Colors.text3},
-              ]}
-            />
-            <Text style={styles.headerCode}>{room.room_code}</Text>
-            <Text style={styles.headerSep}>·</Text>
-            <Text style={styles.headerRole}>{myRole}</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => nav.goBack()}
+            hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+            <Text style={styles.backArrow}>{'<'}</Text>
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Text style={styles.roomName} numberOfLines={1}>
+              {room.project_name}
+            </Text>
+            <View style={styles.headerMeta}>
+              <View
+                style={[
+                  styles.statusDot,
+                  {backgroundColor: room.is_active ? Colors.green : Colors.text3},
+                ]}
+              />
+              <Text style={styles.headerCode}>{room.room_code}</Text>
+              <Text style={styles.headerSep}>·</Text>
+              <Text style={styles.headerRole}>{myRole}</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {loadingMembers ? (
-        <View style={styles.loading}>
-          <ActivityIndicator color={Colors.blue} />
-        </View>
-      ) : (
-        <RoomTabNavigator
-          room={room}
-          role={myRole}
-          members={members}
-          onRefresh={refreshRoom}
-        />
-      )}
-    </SafeAreaView>
+        {loadingMembers ? (
+          <View style={styles.loading}>
+            <ActivityIndicator color={Colors.blue} />
+          </View>
+        ) : (
+          <RoomTabNavigator
+            room={room}
+            role={myRole}
+            members={members}
+            onRefresh={refreshRoom}
+          />
+        )}
+      </SafeAreaView>
+    </RoomRealtimeProvider>
   );
 }
 
