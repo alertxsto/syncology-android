@@ -73,7 +73,15 @@ async function exchangeGoogleTokenForFirebase(googleIdToken: string): Promise<{
 }
 
 export async function signInWithGoogle(): Promise<FirebaseUser> {
+  // Pastikan SDK selalu terkonfigurasi
+  configureGoogleSignIn();
+
   await GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog: true});
+
+  // Clear sesi lokal sebelumnya agar Google Play Services selalu memicu modal pilih akun baru
+  try {
+    await GoogleSignin.signOut();
+  } catch (_) {}
 
   const signInResult = await GoogleSignin.signIn();
   if (isCancelledResponse(signInResult)) {
@@ -84,8 +92,12 @@ export async function signInWithGoogle(): Promise<FirebaseUser> {
   let userInfo: any;
 
   if (isSuccessResponse(signInResult)) {
-    googleIdToken = signInResult.data.idToken;
-    userInfo = signInResult.data.user;
+    googleIdToken = signInResult.data.idToken || (signInResult as any).idToken;
+    userInfo = signInResult.data.user || (signInResult as any).user;
+  } else {
+    // Check direct property fallback
+    googleIdToken = (signInResult as any)?.data?.idToken || (signInResult as any)?.idToken;
+    userInfo = (signInResult as any)?.data?.user || (signInResult as any)?.user;
   }
 
   // Fallback ke GoogleSignin.getTokens() jika idToken belum didapat dari signInResult
