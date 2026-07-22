@@ -11,7 +11,12 @@
  * Semua keys dibaca dari .env via react-native-config.
  */
 
-import {GoogleSignin, statusCodes} from '@react-native-google-signin/google-signin';
+import {
+  GoogleSignin,
+  statusCodes,
+  isSuccessResponse,
+  isCancelledResponse,
+} from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Config from 'react-native-config';
 import type {FirebaseUser} from '../types';
@@ -71,16 +76,38 @@ export async function signInWithGoogle(): Promise<FirebaseUser> {
   await GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog: true});
 
   const signInResult = await GoogleSignin.signIn();
-  const googleIdToken = signInResult.data?.idToken;
+  if (isCancelledResponse(signInResult)) {
+    throw new Error('Login dibatalkan oleh pengguna');
+  }
+
+  let googleIdToken: string | undefined | null;
+  let userInfo: any;
+
+  if (isSuccessResponse(signInResult)) {
+    googleIdToken = signInResult.data.idToken;
+    userInfo = signInResult.data.user;
+  }
+
+  // Fallback ke GoogleSignin.getTokens() jika idToken belum didapat dari signInResult
   if (!googleIdToken) {
-    throw new Error('Tidak mendapat ID token dari Google');
+    try {
+      const tokens = await GoogleSignin.getTokens();
+      googleIdToken = tokens.idToken;
+    } catch (e) {
+      console.warn('[auth] getTokens fallback gagal:', e);
+    }
+  }
+
+  if (!googleIdToken) {
+    throw new Error(
+      'Tidak mendapat ID token dari Google. Pastikan GOOGLE_WEB_CLIENT_ID di .env sudah benar dan SHA-1 sudah terdaftar di Firebase Console.',
+    );
   }
 
   const {idToken, refreshToken, uid} = await exchangeGoogleTokenForFirebase(
     googleIdToken,
   );
 
-  const userInfo = signInResult.data?.user;
   const firebaseUser: FirebaseUser = {
     uid,
     displayName: userInfo?.name ?? '',
