@@ -288,13 +288,20 @@ export default function HomeScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>
-            Halo, {user?.displayName?.split(' ')[0] ?? 'kamu'}
-          </Text>
-          <Text style={styles.headerSub}>
-            {rooms.length} room aktif
-          </Text>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: Spacing.sm}}>
+          <Image
+            source={require('../assets/logo.png')}
+            style={{width: 32, height: 32}}
+            resizeMode="contain"
+          />
+          <View>
+            <Text style={styles.greeting}>
+              Halo, {user?.displayName?.split(' ')[0] ?? 'kamu'}
+            </Text>
+            <Text style={styles.headerSub}>
+              {rooms.length} room aktif
+            </Text>
+          </View>
         </View>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutLabel}>Keluar</Text>

@@ -7,8 +7,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
-  Animated,
-  useAnimatedValue,
+  Image,
 } from 'react-native';
 import {Colors} from '../theme/colors';
 import {Typography} from '../theme/typography';
@@ -16,15 +15,14 @@ import {Spacing, Radius} from '../theme/spacing';
 import {useAuthContext} from '../store/auth';
 import {statusCodes} from '@react-native-google-signin/google-signin';
 
-// Syncology logo — tiga ellipse berputar, mengikuti versi desktop
 function SyncologyLogo() {
   return (
     <View style={styles.logoContainer}>
-      <View style={styles.logoOuter}>
-        <View style={styles.logoRing1} />
-        <View style={styles.logoRing2} />
-        <View style={styles.logoDot} />
-      </View>
+      <Image
+        source={require('../assets/logo.png')}
+        style={styles.logoImage}
+        resizeMode="contain"
+      />
     </View>
   );
 }
@@ -164,34 +162,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoOuter: {
-    width: 52,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoRing1: {
-    position: 'absolute',
-    width: 44,
-    height: 20,
-    borderRadius: 22,
-    borderWidth: 1.8,
-    borderColor: Colors.blueLight,
-  },
-  logoRing2: {
-    position: 'absolute',
-    width: 44,
-    height: 20,
-    borderRadius: 22,
-    borderWidth: 1.8,
-    borderColor: Colors.sky,
-    transform: [{rotate: '60deg'}],
-  },
-  logoDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.blueLight,
+  logoImage: {
+    width: 64,
+    height: 64,
   },
   title: {
     fontSize: Typography['2xl'],
