@@ -35,10 +35,10 @@ interface Props {
 }
 
 const QUICK_REPLIES = [
-  'Oke, lagi gw kerjain! 🚀',
-  'Siap diproses! 👍',
-  'Sudah disubmit ke review 📄',
-  'Tolong bantu cek dong! 🙏',
+  'Oke, lagi gw kerjain!',
+  'Siap diproses!',
+  'Sudah disubmit ke review',
+  'Tolong bantu cek dong!',
 ];
 
 function MessageBubble({
@@ -211,7 +211,7 @@ export default function ChatTab({room}: Props) {
             <TouchableOpacity
               style={styles.searchBtn}
               onPress={() => setShowSearch(true)}>
-              <Text style={styles.searchBtnText}>🔍 Cari</Text>
+              <Text style={styles.searchBtnText}>Cari</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -220,7 +220,6 @@ export default function ChatTab({room}: Props) {
       {/* Message List */}
       {filteredMessages.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>💬</Text>
           <Text style={styles.emptyText}>Belum ada pesan obrolan.</Text>
           <Text style={styles.emptySub}>
             Mulai kirim pesan ke seluruh tim proyek di sini!

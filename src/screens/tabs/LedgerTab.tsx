@@ -40,7 +40,7 @@ interface Props {
 function MedalRank({rank}: {rank: number}) {
   const color =
     rank === 1 ? '#f59e0b' : rank === 2 ? '#94a3b8' : rank === 3 ? '#b45309' : Colors.text3;
-  const label = rank === 1 ? '🥇 01' : rank === 2 ? '🥈 02' : rank === 3 ? '🥉 03' : rank < 10 ? `0${rank}` : `${rank}`;
+  const label = rank < 10 ? `#0${rank}` : `#${rank}`;
 
   return (
     <View

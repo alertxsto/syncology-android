@@ -104,11 +104,10 @@ function TaskCardItem({
 
       <View style={itemStyles.metaRow}>
         <Text style={itemStyles.assigneeText}>
-          👤 {assignee?.display_name ?? (task.assigned_to_id ? task.assigned_to_id.slice(0, 8) : 'Open Pool')}
+          {assignee?.display_name ?? (task.assigned_to_id ? task.assigned_to_id.slice(0, 8) : 'Open Pool')}
         </Text>
 
         <Text style={[itemStyles.deadlineText, isOverdue && {color: Colors.red}]}>
-          📅{' '}
           {task.internal_deadline
             ? new Date(task.internal_deadline).toLocaleDateString('id-ID', {
                 day: 'numeric',

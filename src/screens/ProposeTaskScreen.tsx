@@ -163,7 +163,7 @@ export default function ProposeTaskScreen() {
         {/* Smart Load Balancer Banner */}
         {recommendation ? (
           <View style={styles.recommendationBanner}>
-            <Text style={styles.recIcon}>🟢</Text>
+            <View style={styles.recDot} />
             <Text style={styles.recText}>
               <Text style={styles.recBold}>Saran Load Balancer: </Text>
               Direkomendasikan ditugaskan ke{' '}
@@ -204,7 +204,7 @@ export default function ProposeTaskScreen() {
               setAssignedTo(null);
             }}>
             <Text style={[styles.memberChipText, isOpenPool && styles.memberChipTextActive]}>
-              🌐 Open Pool (Unassigned)
+              Open Pool (Unassigned)
             </Text>
           </TouchableOpacity>
 
@@ -212,7 +212,7 @@ export default function ProposeTaskScreen() {
             const pts = memberWorkloads[m.uid] || 0;
             const isOverloaded = pts > 25;
             const isNormal = pts > 12 && pts <= 25;
-            const indicator = isOverloaded ? '🔴' : isNormal ? '🟡' : '🟢';
+            const dotColor = isOverloaded ? Colors.red : isNormal ? Colors.yellow : Colors.green;
             const isSelected = !isOpenPool && assignedTo?.id === m.id;
 
             return (
@@ -223,8 +223,9 @@ export default function ProposeTaskScreen() {
                   setIsOpenPool(false);
                   setAssignedTo(m);
                 }}>
+                <View style={[styles.statusDot, {backgroundColor: dotColor}]} />
                 <Text style={[styles.memberChipText, isSelected && styles.memberChipTextActive]}>
-                  {indicator} {m.display_name} ({pts} pt)
+                  {m.display_name} ({pts} pt)
                 </Text>
               </TouchableOpacity>
             );
@@ -272,7 +273,7 @@ export default function ProposeTaskScreen() {
                   month: 'long',
                   year: 'numeric',
                 })
-              : '📅 Ketuk untuk Pilih Deadline Kalender...'}
+              : 'Ketuk untuk Pilih Deadline Kalender...'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -319,11 +320,21 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     padding: Spacing.md,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
     marginBottom: Spacing.xs,
   },
-  recIcon: {fontSize: 16},
+  recDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.green,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   recText: {
     flex: 1,
     fontSize: Typography.xs,

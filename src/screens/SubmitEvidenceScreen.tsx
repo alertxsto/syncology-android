@@ -36,12 +36,12 @@ import type {EvidenceType} from '../types';
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 type Route = RouteProp<MainStackParamList, 'SubmitEvidence'>;
 
-const EVIDENCE_TYPES: {key: EvidenceType; label: string; icon: string}[] = [
-  {key: 'github_pr', label: 'GitHub Pull Request', icon: '🐙'},
-  {key: 'github_commit', label: 'GitHub Commit', icon: '💻'},
-  {key: 'document', label: 'Dokumen (Notion/Docs)', icon: '📄'},
-  {key: 'image', label: 'Screenshot / Gambar', icon: '🖼️'},
-  {key: 'other_url', label: 'Link Web / URL Lainnya', icon: '🔗'},
+const EVIDENCE_TYPES: {key: EvidenceType; label: string; tag: string}[] = [
+  {key: 'github_pr', label: 'GitHub Pull Request', tag: 'PR'},
+  {key: 'github_commit', label: 'GitHub Commit', tag: 'GIT'},
+  {key: 'document', label: 'Dokumen (Notion/Docs)', tag: 'DOC'},
+  {key: 'image', label: 'Screenshot / Gambar', tag: 'IMG'},
+  {key: 'other_url', label: 'Link Web / URL Lainnya', tag: 'URL'},
 ];
 
 export default function SubmitEvidenceScreen() {
@@ -104,7 +104,7 @@ export default function SubmitEvidenceScreen() {
         notes: notes.trim(),
       });
 
-      Alert.alert('Berhasil 🎉', 'Bukti pekerjaan berhasil dikirim! Menunggu review.');
+      Alert.alert('Berhasil', 'Bukti pekerjaan berhasil dikirim! Menunggu review.');
       nav.goBack();
     } catch (e: any) {
       setError(e.message ?? 'Gagal submit evidence');
@@ -158,7 +158,9 @@ export default function SubmitEvidenceScreen() {
                   setEvidenceType(t.key);
                   setError('');
                 }}>
-                <Text style={styles.typeIcon}>{t.icon}</Text>
+                <View style={styles.tagBadge}>
+                  <Text style={styles.tagBadgeText}>{t.tag}</Text>
+                </View>
                 <Text style={[styles.typeLabel, isSelected && styles.typeLabelActive]}>
                   {t.label}
                 </Text>
@@ -369,7 +371,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59,130,246,0.15)',
     borderColor: Colors.blue,
   },
-  typeIcon: {fontSize: 16},
+  tagBadge: {
+    backgroundColor: Colors.bg4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  tagBadgeText: {
+    fontSize: Typography.xs,
+    fontFamily: 'monospace',
+    fontWeight: Typography.bold,
+    color: Colors.blueLight,
+  },
   typeLabel: {
     fontSize: Typography.sm,
     color: Colors.text2,

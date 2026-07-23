@@ -256,7 +256,8 @@ export default function TaskDetailScreen() {
         actorName: user?.displayName ?? '',
       });
       setTask(prev => ({...prev, status: 'completed'}));
-      Alert.alert('Berhasil 🎉', 'Tugas diselesaikan!');
+      setTask(prev => ({...prev, status: 'completed'}));
+      Alert.alert('Berhasil', 'Tugas diselesaikan!');
     } catch (e: any) {
       Alert.alert('Gagal', e.message);
     } finally {
@@ -304,7 +305,7 @@ export default function TaskDetailScreen() {
         fromName: user.displayName,
         taskTitle: task.title,
       });
-      Alert.alert('Berhasil 🔔', 'Nudge pengingat terkirim!');
+      Alert.alert('Berhasil', 'Nudge pengingat terkirim!');
     } catch (e: any) {
       Alert.alert('Gagal', e.message);
     } finally {
@@ -393,7 +394,7 @@ export default function TaskDetailScreen() {
         {/* Kudos Action Bar */}
         <View style={styles.kudosBar}>
           <TouchableOpacity style={styles.kudosBtn} onPress={handleGiveKudos}>
-            <Text style={styles.kudosBtnText}>⭐ Beri Kudos ({task.kudos_count ?? 0})</Text>
+            <Text style={styles.kudosBtnText}>Beri Kudos ({task.kudos_count ?? 0})</Text>
           </TouchableOpacity>
         </View>
 
@@ -405,7 +406,9 @@ export default function TaskDetailScreen() {
               key={sub.id || idx}
               style={styles.subtaskRow}
               onPress={() => handleToggleSubtask(idx)}>
-              <Text style={styles.checkbox}>{sub.done ? '☑' : '☐'}</Text>
+              <View style={[styles.checkboxBox, sub.done && styles.checkboxBoxChecked]}>
+                {sub.done && <Text style={styles.checkmarkText}>✓</Text>}
+              </View>
               <Text style={[styles.subtaskTitle, sub.done && styles.subtaskCompleted]}>
                 {sub.title}
               </Text>
@@ -431,7 +434,7 @@ export default function TaskDetailScreen() {
           <View style={styles.evidenceBox}>
             <View style={styles.evidenceHeaderRow}>
               <Text style={styles.evidenceLabel}>
-                {isImageEvidence ? '🖼️ Bukti Tangkapan Layar / Foto' : '🔗 Evidence URL ↗'}
+                {isImageEvidence ? 'Bukti Tangkapan Layar / Foto' : 'Evidence URL'}
               </Text>
               <TouchableOpacity onPress={openEvidenceUrl}>
                 <Text style={styles.openLinkText}>Buka Link ↗</Text>
@@ -449,7 +452,7 @@ export default function TaskDetailScreen() {
                 />
                 <View style={styles.imageOverlayBadge}>
                   <Text style={styles.imageOverlayBadgeText}>
-                    🔍 Ketuk untuk Perbesar Foto ({evidenceImageUrls.length})
+                    Ketuk untuk Perbesar Foto ({evidenceImageUrls.length})
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -497,7 +500,7 @@ export default function TaskDetailScreen() {
 
           {!isAssignee && task.status !== 'completed' && (
             <TouchableOpacity style={styles.btnSecondary} onPress={handleNudge} disabled={loading}>
-              <Text style={styles.btnSecondaryLabel}>🔔 Kirim Nudge Pengingat</Text>
+              <Text style={styles.btnSecondaryLabel}>Kirim Nudge Pengingat</Text>
             </TouchableOpacity>
           )}
 
@@ -640,6 +643,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     paddingVertical: 4,
+  },
+  checkboxBox: {
+    width: 18,
+    height: 18,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+    backgroundColor: Colors.bg3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxBoxChecked: {
+    backgroundColor: Colors.blue,
+    borderColor: Colors.blue,
+  },
+  checkmarkText: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: Typography.bold,
+    lineHeight: 14,
   },
   checkbox: {
     fontSize: Typography.lg,

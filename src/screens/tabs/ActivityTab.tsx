@@ -39,23 +39,23 @@ const CATEGORY_FILTERS = [
   {id: 'room', label: 'Room'},
 ];
 
-const EVENT_META: Record<EventType, {label: string; icon: string; color: string}> = {
-  room_created: {label: 'Room dibuat', icon: '🎯', color: Colors.blue},
-  room_updated: {label: 'Room diupdate', icon: '✏️', color: Colors.blue},
-  room_ended: {label: 'Room diakhiri', icon: '🛑', color: Colors.text3},
-  member_joined: {label: 'Anggota bergabung', icon: '👤', color: Colors.green},
-  member_rejoined: {label: 'Anggota kembali', icon: '🔄', color: Colors.green},
-  member_removed: {label: 'Anggota dikeluarkan', icon: '🚪', color: Colors.red},
-  task_proposed: {label: 'Task diusulkan', icon: '📄', color: Colors.indigo},
-  task_approved: {label: 'Task disetujui', icon: '✅', color: Colors.green},
-  task_rejected: {label: 'Task ditolak', icon: '❌', color: Colors.red},
-  task_rescued: {label: 'Task di-rescue', icon: '⚡', color: Colors.yellow},
-  task_updated: {label: 'Task diupdate', icon: '✏️', color: Colors.blueLight},
-  task_deleted: {label: 'Task dihapus', icon: '🗑️', color: Colors.red},
-  evidence_submitted: {label: 'Bukti dikirim', icon: '📎', color: Colors.yellow},
-  nudge_sent: {label: 'Nudge terkirim', icon: '🔔', color: Colors.orange},
-  kudos_sent: {label: 'Kudos diberikan', icon: '⭐', color: '#a855f7'},
-  backup_called: {label: 'Bantuan diminta', icon: '🚨', color: Colors.red},
+const EVENT_META: Record<EventType, {label: string; tag: string; color: string}> = {
+  room_created: {label: 'Room dibuat', tag: 'RM', color: Colors.blue},
+  room_updated: {label: 'Room diupdate', tag: 'RM', color: Colors.blue},
+  room_ended: {label: 'Room diakhiri', tag: 'END', color: Colors.text3},
+  member_joined: {label: 'Anggota bergabung', tag: 'MEM', color: Colors.green},
+  member_rejoined: {label: 'Anggota kembali', tag: 'MEM', color: Colors.green},
+  member_removed: {label: 'Anggota dikeluarkan', tag: 'MEM', color: Colors.red},
+  task_proposed: {label: 'Task diusulkan', tag: 'TSK', color: Colors.indigo},
+  task_approved: {label: 'Task disetujui', tag: 'OK', color: Colors.green},
+  task_rejected: {label: 'Task ditolak', tag: 'NO', color: Colors.red},
+  task_rescued: {label: 'Task di-rescue', tag: 'EMG', color: Colors.yellow},
+  task_updated: {label: 'Task diupdate', tag: 'TSK', color: Colors.blueLight},
+  task_deleted: {label: 'Task dihapus', tag: 'DEL', color: Colors.red},
+  evidence_submitted: {label: 'Bukti dikirim', tag: 'EVI', color: Colors.yellow},
+  nudge_sent: {label: 'Nudge terkirim', tag: 'NDG', color: Colors.orange},
+  kudos_sent: {label: 'Kudos diberikan', tag: 'KUD', color: '#a855f7'},
+  backup_called: {label: 'Bantuan diminta', tag: 'HELP', color: Colors.red},
 };
 
 export default function ActivityTab({room}: Props) {
@@ -199,7 +199,7 @@ export default function ActivityTab({room}: Props) {
                       styles.actorChipText,
                       isActive && styles.actorChipTextActive,
                     ]}>
-                    👤 {m.display_name}
+                    {m.display_name}
                   </Text>
                 </TouchableOpacity>
               );
@@ -223,7 +223,6 @@ export default function ActivityTab({room}: Props) {
         }>
         {groupedDays.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>📥</Text>
             <Text style={styles.emptyTitle}>Belum ada aktivitas</Text>
             <Text style={styles.emptySub}>
               Aktivitas room akan muncul di sini secara real-time!
@@ -244,7 +243,7 @@ export default function ActivityTab({room}: Props) {
               {group.items.map(e => {
                 const meta = EVENT_META[e.event_type] ?? {
                   label: e.event_type.replace(/_/g, ' '),
-                  icon: '•',
+                  tag: 'LOG',
                   color: Colors.text3,
                 };
                 const payload = e.payload || {};
@@ -269,8 +268,8 @@ export default function ActivityTab({room}: Props) {
 
                 return (
                   <View key={e.id} style={styles.eventRow}>
-                    <View style={[styles.iconWrap, {backgroundColor: meta.color + '22'}]}>
-                      <Text style={styles.iconText}>{meta.icon}</Text>
+                    <View style={[styles.iconWrap, {backgroundColor: meta.color + '22', borderColor: meta.color + '44'}]}>
+                      <Text style={[styles.iconText, {color: meta.color}]}>{meta.tag}</Text>
                     </View>
 
                     <View style={styles.eventInfo}>
@@ -396,15 +395,19 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    marginTop: 2,
   },
   iconText: {
-    fontSize: 16,
+    fontSize: 9,
+    fontFamily: 'monospace',
+    fontWeight: Typography.bold,
   },
   eventInfo: {
     flex: 1,
