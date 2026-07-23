@@ -141,4 +141,46 @@ export const memberApi = {
       payload: {member_id: input.memberId},
     });
   },
+
+  async updateRole(input: {
+    roomId: string;
+    memberId: string;
+    newRole: 'leader' | 'member';
+    actorUid: string;
+    actorName: string;
+  }): Promise<void> {
+    const {error} = await supabaseAdmin
+      .from('members')
+      .update({role: input.newRole})
+      .eq('id', input.memberId)
+      .eq('room_id', input.roomId);
+
+    if (error) throw new Error(error.message);
+
+    await supabaseAdmin.from('events').insert({
+      room_id: input.roomId,
+      actor_uid: input.actorUid,
+      actor_name: input.actorName,
+      event_type: 'member_updated',
+      payload: {member_id: input.memberId, new_role: input.newRole},
+    });
+  },
+
+  async callBackup(input: {
+    roomId: string;
+    taskId: string;
+    actorUid: string;
+    actorName: string;
+    message: string;
+  }): Promise<void> {
+    const {error} = await supabaseAdmin.from('events').insert({
+      room_id: input.roomId,
+      actor_uid: input.actorUid,
+      actor_name: input.actorName,
+      event_type: 'backup_called',
+      payload: {task_id: input.taskId, message: input.message},
+    });
+
+    if (error) throw new Error(error.message);
+  },
 };

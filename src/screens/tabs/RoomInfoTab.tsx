@@ -119,6 +119,35 @@ export default function RoomInfoTab({room, role, members, onRefresh}: Props) {
     );
   };
 
+  const handleToggleRole = (m: Member) => {
+    const nextRole = m.role === 'leader' ? 'member' : 'leader';
+    const actionName = nextRole === 'leader' ? 'Jadikan Leader' : 'Turunkan ke Member';
+    Alert.alert(
+      actionName,
+      `Ubah role ${m.display_name} menjadi ${nextRole.toUpperCase()}?`,
+      [
+        {text: 'Batal', style: 'cancel'},
+        {
+          text: 'Ubah Role',
+          onPress: async () => {
+            try {
+              await memberApi.updateRole({
+                roomId: room.id,
+                memberId: m.id,
+                newRole: nextRole,
+                actorUid: user?.uid ?? '',
+                actorName: user?.displayName ?? '',
+              });
+              onRefresh();
+            } catch (e: any) {
+              Alert.alert('Gagal', e.message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
 
@@ -186,17 +215,32 @@ export default function RoomInfoTab({room, role, members, onRefresh}: Props) {
         {members.map(m => (
           <View key={m.id} style={styles.memberRow}>
             <View style={styles.memberInfo}>
-              <Text style={styles.memberName}>{m.display_name}</Text>
-              <Text style={styles.memberMeta}>
-                {m.role} · {m.total_pts} pts
-              </Text>
+              <View style={styles.nameRoleRow}>
+                <Text style={styles.memberName}>{m.display_name}</Text>
+                <View style={[styles.roleBadge, m.role === 'leader' && styles.roleBadgeLeader]}>
+                  <Text style={[styles.roleBadgeText, m.role === 'leader' && styles.roleBadgeTextLeader]}>
+                    {m.role.toUpperCase()}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.memberMeta}>{m.total_pts} pts total</Text>
             </View>
+
             {isLeader && m.uid !== user?.uid && (
-              <TouchableOpacity
-                style={styles.removeBtn}
-                onPress={() => handleRemoveMember(m)}>
-                <Text style={styles.removeBtnLabel}>Keluarkan</Text>
-              </TouchableOpacity>
+              <View style={styles.memberActions}>
+                <TouchableOpacity
+                  style={styles.roleBtn}
+                  onPress={() => handleToggleRole(m)}>
+                  <Text style={styles.roleBtnLabel}>
+                    {m.role === 'leader' ? 'Make Member' : 'Make Leader'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.removeBtn}
+                  onPress={() => handleRemoveMember(m)}>
+                  <Text style={styles.removeBtnLabel}>Keluarkan</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         ))}
@@ -279,15 +323,59 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  memberInfo: {flex: 1},
+  memberInfo: {flex: 1, gap: 2},
+  nameRoleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
   memberName: {
     fontSize: Typography.base,
     fontWeight: Typography.medium,
     color: Colors.text1,
   },
+  roleBadge: {
+    backgroundColor: Colors.bg4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  roleBadgeLeader: {
+    backgroundColor: 'rgba(59,130,246,0.15)',
+    borderColor: Colors.blue,
+  },
+  roleBadgeText: {
+    fontSize: 9,
+    fontFamily: 'monospace',
+    fontWeight: Typography.bold,
+    color: Colors.text3,
+  },
+  roleBadgeTextLeader: {
+    color: Colors.blueLight,
+  },
   memberMeta: {fontSize: Typography.xs, color: Colors.text3},
+  memberActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  roleBtn: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.bg3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  roleBtnLabel: {
+    fontSize: Typography.xs,
+    color: Colors.text2,
+    fontWeight: Typography.medium,
+  },
   removeBtn: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: Radius.sm,
     backgroundColor: Colors.redDim,

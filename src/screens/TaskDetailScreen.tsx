@@ -337,6 +337,63 @@ export default function TaskDetailScreen() {
     );
   };
 
+  const handleCallBackup = () => {
+    Alert.prompt(
+      'Panggil Bantuan',
+      'Jelaskan kendala yang kamu hadapi kepada tim:',
+      async text => {
+        if (!text) return;
+        setLoading(true);
+        try {
+          await memberApi.callBackup({
+            roomId,
+            taskId: task.id,
+            actorUid: user?.uid ?? '',
+            actorName: user?.displayName ?? '',
+            message: text,
+          });
+          Alert.alert('Berhasil', 'Permintaan bantuan darurat telah dikirim ke tim!');
+        } catch (e: any) {
+          Alert.alert('Gagal', e.message);
+        } finally {
+          setLoading(false);
+        }
+      },
+      'plain-text',
+    );
+  };
+
+  const handleRescueTask = () => {
+    Alert.alert(
+      'Rescue Task',
+      'Rescue tugas ini dan kembalikan ke Open Pool agar dapat dikerjakan member lain?',
+      [
+        {text: 'Batal', style: 'cancel'},
+        {
+          text: 'Rescue ke Open Pool',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await taskApi.rescueTask({
+                taskId: task.id,
+                roomId,
+                newAssigneeId: null,
+                actorUid: user?.uid ?? '',
+                actorName: user?.displayName ?? '',
+              });
+              setTask(prev => ({...prev, assigned_to_id: '', status: 'todo'}));
+              Alert.alert('Berhasil', 'Tugas berhasil di-rescue ke Open Pool!');
+            } catch (e: any) {
+              Alert.alert('Gagal', e.message);
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const openEvidenceUrl = () => {
     if (task.evidence_url) {
       Linking.openURL(task.evidence_url).catch(() => {
@@ -496,6 +553,18 @@ export default function TaskDetailScreen() {
                 <Text style={styles.btnDangerLabel}>Tolak Evidence</Text>
               </TouchableOpacity>
             </>
+          )}
+
+          {isAssignee && (task.status === 'todo' || task.status === 'disputed') && (
+            <TouchableOpacity style={styles.btnWarning} onPress={handleCallBackup} disabled={loading}>
+              <Text style={styles.btnWarningLabel}>Panggil Bantuan (Call Backup)</Text>
+            </TouchableOpacity>
+          )}
+
+          {isLeader && task.assigned_to_id !== '' && task.status !== 'completed' && (
+            <TouchableOpacity style={styles.btnWarning} onPress={handleRescueTask} disabled={loading}>
+              <Text style={styles.btnWarningLabel}>Rescue Task ke Open Pool</Text>
+            </TouchableOpacity>
           )}
 
           {!isAssignee && task.status !== 'completed' && (
@@ -786,6 +855,19 @@ const styles = StyleSheet.create({
     color: Colors.text1,
     fontSize: Typography.base,
     fontWeight: Typography.semibold,
+  },
+  btnWarning: {
+    backgroundColor: 'rgba(234,179,8,0.15)',
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(234,179,8,0.4)',
+  },
+  btnWarningLabel: {
+    color: Colors.yellow,
+    fontSize: Typography.base,
+    fontWeight: Typography.bold,
   },
   btnDanger: {
     backgroundColor: Colors.redDim,

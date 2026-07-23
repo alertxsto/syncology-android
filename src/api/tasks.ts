@@ -301,4 +301,32 @@ export const taskApi = {
 
     if (error) throw new Error(error.message);
   },
+
+  async rescueTask(input: {
+    taskId: string;
+    roomId: string;
+    newAssigneeId: string | null;
+    actorUid: string;
+    actorName: string;
+  }): Promise<void> {
+    const {error} = await supabaseAdmin
+      .from('tasks')
+      .update({
+        assigned_to_id: input.newAssigneeId ?? '',
+        status: 'todo',
+        escalation_level: 0,
+      })
+      .eq('id', input.taskId)
+      .eq('room_id', input.roomId);
+
+    if (error) throw new Error(error.message);
+
+    await supabaseAdmin.from('events').insert({
+      room_id: input.roomId,
+      actor_uid: input.actorUid,
+      actor_name: input.actorName,
+      event_type: 'task_rescued',
+      payload: {task_id: input.taskId, new_assignee: input.newAssigneeId},
+    });
+  },
 };
