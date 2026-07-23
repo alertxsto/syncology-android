@@ -1,4 +1,15 @@
-import React, {useState, useEffect, useCallback, useRef} from 'react';
+/**
+ * ChatTab — Chat Room & Realtime Messaging (1:1 Desktop Parity)
+ *
+ * Fitur:
+ * - Search Message Bar (Pencarian kata kunci & pengirim).
+ * - Reply System (Membalas pesan dengan kutipan preview).
+ * - Quick Reply Chips (Shortcut pesan cepat).
+ * - Sender Avatars dengan inisial pengirim.
+ * - Auto Scroll ke pesan terbawah & Live Realtime sync.
+ */
+
+import React, {useState, useEffect, useCallback, useRef, useMemo} from 'react';
 import {
   View,
   Text,
@@ -9,6 +20,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import {chatApi} from '../../api/chat';
 import {useRealtime} from '../../hooks/useRealtime';
@@ -22,33 +34,71 @@ interface Props {
   room: Room;
 }
 
+const QUICK_REPLIES = [
+  'Oke, lagi gw kerjain! 🚀',
+  'Siap diproses! 👍',
+  'Sudah disubmit ke review 📄',
+  'Tolong bantu cek dong! 🙏',
+];
+
 function MessageBubble({
   msg,
   isMe,
+  onReply,
 }: {
   msg: ChatMessage;
   isMe: boolean;
+  onReply: (msg: ChatMessage) => void;
 }) {
-  const time = new Date(msg.timestamp).toLocaleTimeString('id-ID', {
+  const timeStr = new Date(msg.timestamp).toLocaleTimeString('id-ID', {
     hour: '2-digit',
     minute: '2-digit',
   });
 
   return (
-    <View style={[bubbleStyles.wrapper, isMe && bubbleStyles.wrapperMe]}>
-      {!isMe && (
-        <Text style={bubbleStyles.senderName}>{msg.sender_name}</Text>
-      )}
-      <View style={[bubbleStyles.bubble, isMe && bubbleStyles.bubbleMe]}>
-        <Text style={[bubbleStyles.body, isMe && bubbleStyles.bodyMe]}>
-          {msg.message_body}
-        </Text>
+    <TouchableOpacity
+      style={[bubbleStyles.wrapper, isMe && bubbleStyles.wrapperMe]}
+      onLongPress={() => onReply(msg)}
+      activeOpacity={0.85}>
+      <View style={bubbleStyles.bubbleRow}>
+        {!isMe && (
+          <View style={bubbleStyles.avatarCircle}>
+            <Text style={bubbleStyles.avatarText}>
+              {msg.sender_name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+
+        <View style={bubbleStyles.bubbleBody}>
+          {!isMe && (
+            <Text style={bubbleStyles.senderName}>{msg.sender_name}</Text>
+          )}
+
+          <View style={[bubbleStyles.bubble, isMe && bubbleStyles.bubbleMe]}>
+            {/* Reply Quote Banner */}
+            {msg.reply_to_body ? (
+              <View style={bubbleStyles.quoteBox}>
+                <Text style={bubbleStyles.quoteSender} numberOfLines={1}>
+                  {msg.reply_to_sender || 'Pengguna'}
+                </Text>
+                <Text style={bubbleStyles.quoteBody} numberOfLines={2}>
+                  {msg.reply_to_body}
+                </Text>
+              </View>
+            ) : null}
+
+            <Text style={[bubbleStyles.body, isMe && bubbleStyles.bodyMe]}>
+              {msg.message_body}
+            </Text>
+
+            <Text style={[bubbleStyles.time, isMe && bubbleStyles.timeMe]}>
+              {timeStr}
+              {msg.edited ? ' (edited)' : ''}
+            </Text>
+          </View>
+        </View>
       </View>
-      <Text style={[bubbleStyles.time, isMe && bubbleStyles.timeMe]}>
-        {time}
-        {msg.edited ? ' (diedit)' : ''}
-      </Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -56,44 +106,72 @@ export default function ChatTab({room}: Props) {
   const {user} = useAuthContext();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList>(null);
 
-  const load = useCallback(async () => {
+  const loadMessages = useCallback(async () => {
     try {
       const data = await chatApi.list(room.id);
       setMessages(data);
     } catch (e) {
-      console.error(e);
+      console.error('Gagal load messages:', e);
     } finally {
       setLoading(false);
     }
   }, [room.id]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadMessages();
+  }, [loadMessages]);
 
   useRealtime({
     roomId: room.id,
     onMessageChange: () => {
-      load().then(() => {
+      loadMessages().then(() => {
         setTimeout(() => listRef.current?.scrollToEnd({animated: true}), 100);
       });
     },
   });
 
-  const sendMessage = async () => {
-    const body = input.trim();
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery.trim()) return messages;
+    const q = searchQuery.toLowerCase().trim();
+    return messages.filter(
+      m =>
+        m.message_body.toLowerCase().includes(q) ||
+        m.sender_name.toLowerCase().includes(q),
+    );
+  }, [messages, searchQuery]);
+
+  const handleSendMessage = async (textToSend?: string) => {
+    const body = (textToSend ?? input).trim();
     if (!body || !user) return;
+
     setSending(true);
-    setInput('');
+    if (!textToSend) setInput('');
+
     try {
-      await chatApi.send(room.id, body, user.uid, user.displayName);
+      await chatApi.send(
+        room.id,
+        body,
+        user.uid,
+        user.displayName || 'Pengguna',
+        replyTo
+          ? {
+              message_id: replyTo.id,
+              sender_name: replyTo.sender_name,
+              message_body: replyTo.message_body,
+            }
+          : undefined,
+      );
+      setReplyTo(null);
     } catch (e) {
       console.error('Gagal kirim pesan:', e);
-      setInput(body);
+      if (!textToSend) setInput(body);
     } finally {
       setSending(false);
     }
@@ -102,7 +180,7 @@ export default function ChatTab({room}: Props) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={Colors.blue} />
+        <ActivityIndicator color={Colors.blue} size="large" />
       </View>
     );
   }
@@ -111,41 +189,115 @@ export default function ChatTab({room}: Props) {
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      {messages.length === 0 ? (
+      {/* Header Search Toggle Bar */}
+      <View style={styles.headerBar}>
+        {showSearch ? (
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Cari pesan atau nama..."
+              placeholderTextColor={Colors.text3}
+              autoFocus
+            />
+            <TouchableOpacity onPress={() => setShowSearch(false)}>
+              <Text style={styles.closeSearchText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.titleRow}>
+            <Text style={styles.roomChatTitle}>Diskusi Obrolan Proyek</Text>
+            <TouchableOpacity
+              style={styles.searchBtn}
+              onPress={() => setShowSearch(true)}>
+              <Text style={styles.searchBtnText}>🔍 Cari</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      {/* Message List */}
+      {filteredMessages.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>Belum ada pesan. Mulai obrolan!</Text>
+          <Text style={styles.emptyIcon}>💬</Text>
+          <Text style={styles.emptyText}>Belum ada pesan obrolan.</Text>
+          <Text style={styles.emptySub}>
+            Mulai kirim pesan ke seluruh tim proyek di sini!
+          </Text>
         </View>
       ) : (
         <FlatList
           ref={listRef}
-          data={messages}
+          data={filteredMessages}
           keyExtractor={m => m.id}
           contentContainerStyle={styles.listContent}
           onLayout={() => listRef.current?.scrollToEnd({animated: false})}
           renderItem={({item}) => (
-            <MessageBubble msg={item} isMe={item.sender_id === user?.uid} />
+            <MessageBubble
+              msg={item}
+              isMe={item.sender_id === user?.uid}
+              onReply={setReplyTo}
+            />
           )}
         />
       )}
 
+      {/* Quick Reply Chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.quickReplyRow}>
+        {QUICK_REPLIES.map((qText, i) => (
+          <TouchableOpacity
+            key={i}
+            style={styles.quickChip}
+            onPress={() => handleSendMessage(qText)}>
+            <Text style={styles.quickChipText}>{qText}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Reply Quote Banner Bar */}
+      {replyTo ? (
+        <View style={styles.replyBar}>
+          <View style={styles.replyInfo}>
+            <Text style={styles.replyTitle}>
+              Membalas {replyTo.sender_name}
+            </Text>
+            <Text style={styles.replySnippet} numberOfLines={1}>
+              {replyTo.message_body}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => setReplyTo(null)}>
+            <Text style={styles.closeReplyBtn}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {/* Input Row */}
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
           value={input}
           onChangeText={setInput}
-          placeholder="Tulis pesan..."
+          placeholder="Tulis pesan obrolan..."
           placeholderTextColor={Colors.text3}
           multiline
           maxLength={2000}
-          onSubmitEditing={sendMessage}
+          onSubmitEditing={() => handleSendMessage()}
           returnKeyType="send"
           blurOnSubmit={false}
         />
         <TouchableOpacity
           style={[styles.sendBtn, (!input.trim() || sending) && styles.sendBtnDisabled]}
-          onPress={sendMessage}
+          onPress={() => handleSendMessage()}
           disabled={!input.trim() || sending}>
-          <Text style={styles.sendLabel}>Kirim</Text>
+          {sending ? (
+            <ActivityIndicator color={Colors.white} size="small" />
+          ) : (
+            <Text style={styles.sendLabel}>Kirim</Text>
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -155,12 +307,102 @@ export default function ChatTab({room}: Props) {
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: Colors.bg0},
   center: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  empty: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  emptyText: {fontSize: Typography.base, color: Colors.text3},
+  headerBar: {
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.xs,
+    backgroundColor: Colors.bg1,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  roomChatTitle: {
+    fontSize: Typography.sm,
+    fontWeight: Typography.bold,
+    color: Colors.text1,
+  },
+  searchBtn: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.bg3,
+  },
+  searchBtnText: {
+    fontSize: Typography.xs,
+    color: Colors.blueLight,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: Colors.bg3,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    color: Colors.text1,
+    fontSize: Typography.xs,
+  },
+  closeSearchText: {
+    fontSize: Typography.base,
+    color: Colors.text3,
+    paddingHorizontal: 4,
+  },
   listContent: {
     padding: Spacing.base,
-    gap: 2,
+    gap: Spacing.xs,
     paddingBottom: Spacing.md,
+  },
+  quickReplyRow: {
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.xs,
+    gap: Spacing.xs,
+    backgroundColor: Colors.bg1,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  quickChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.bg3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  quickChipText: {
+    fontSize: Typography.xs,
+    color: Colors.blueLight,
+  },
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.bg3,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: Colors.blue,
+  },
+  replyInfo: {
+    flex: 1,
+  },
+  replyTitle: {
+    fontSize: Typography.xs,
+    fontWeight: Typography.bold,
+    color: Colors.blueLight,
+  },
+  replySnippet: {
+    fontSize: Typography.xs,
+    color: Colors.text2,
+  },
+  closeReplyBtn: {
+    fontSize: Typography.base,
+    color: Colors.text3,
   },
   inputRow: {
     flexDirection: 'row',
@@ -174,20 +416,20 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     backgroundColor: Colors.bg3,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.sm,
     color: Colors.text1,
     fontSize: Typography.base,
-    maxHeight: 120,
+    maxHeight: 100,
   },
   sendBtn: {
     backgroundColor: Colors.blue,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
     justifyContent: 'center',
   },
   sendBtnDisabled: {
@@ -196,40 +438,100 @@ const styles = StyleSheet.create({
   sendLabel: {
     color: Colors.white,
     fontSize: Typography.sm,
+    fontWeight: Typography.bold,
+  },
+  empty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  emptyIcon: {fontSize: 32},
+  emptyTitle: {
+    fontSize: Typography.base,
+    fontWeight: Typography.bold,
+    color: Colors.text1,
+  },
+  emptyText: {
+    fontSize: Typography.base,
+    color: Colors.text1,
     fontWeight: Typography.semibold,
+  },
+  emptySub: {
+    fontSize: Typography.xs,
+    color: Colors.text3,
   },
 });
 
 const bubbleStyles = StyleSheet.create({
   wrapper: {
-    maxWidth: '80%',
+    maxWidth: '85%',
     alignSelf: 'flex-start',
     marginVertical: 2,
-    gap: 2,
   },
   wrapperMe: {
     alignSelf: 'flex-end',
+  },
+  bubbleRow: {
+    flexDirection: 'row',
     alignItems: 'flex-end',
+    gap: 6,
+  },
+  avatarCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.bg4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  avatarText: {
+    fontSize: Typography.xs,
+    fontWeight: Typography.bold,
+    color: Colors.blueLight,
+  },
+  bubbleBody: {
+    flexShrink: 1,
   },
   senderName: {
     fontSize: Typography.xs,
     color: Colors.text3,
+    marginBottom: 2,
     marginLeft: 4,
   },
   bubble: {
-    backgroundColor: Colors.bg3,
+    backgroundColor: Colors.bg2,
     borderRadius: Radius.lg,
     borderBottomLeftRadius: 4,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.border,
+    gap: 4,
   },
   bubbleMe: {
-    backgroundColor: 'rgba(59,130,246,0.2)',
+    backgroundColor: 'rgba(59,130,246,0.18)',
     borderColor: 'rgba(59,130,246,0.3)',
     borderBottomLeftRadius: Radius.lg,
     borderBottomRightRadius: 4,
+  },
+  quoteBox: {
+    backgroundColor: Colors.bg3,
+    borderRadius: Radius.sm,
+    padding: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.blue,
+    marginBottom: 4,
+  },
+  quoteSender: {
+    fontSize: Typography.xs,
+    fontWeight: Typography.bold,
+    color: Colors.blueLight,
+  },
+  quoteBody: {
+    fontSize: Typography.xs,
+    color: Colors.text2,
   },
   body: {
     fontSize: Typography.base,
@@ -242,10 +544,11 @@ const bubbleStyles = StyleSheet.create({
   time: {
     fontSize: 10,
     color: Colors.text3,
-    marginLeft: 4,
+    alignSelf: 'flex-end',
+    marginTop: 2,
   },
   timeMe: {
-    marginLeft: 0,
-    marginRight: 4,
+    color: Colors.blueLight,
+    opacity: 0.7,
   },
 });

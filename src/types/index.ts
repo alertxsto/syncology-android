@@ -131,6 +131,8 @@ export interface ChatMessage {
   timestamp: string;
   edited?: boolean;
   reply_to?: string;
+  reply_to_sender?: string;
+  reply_to_body?: string;
   reactions?: Record<string, string[]>;
 }
 

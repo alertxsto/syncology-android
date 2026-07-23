@@ -21,6 +21,7 @@ import {
   SafeAreaView,
   StatusBar,
   Linking,
+  Image,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -33,6 +34,7 @@ import {Typography} from '../theme/typography';
 import {Spacing, Radius} from '../theme/spacing';
 import type {MainStackParamList} from '../navigation/MainNavigator';
 import type {Task, TaskStatus, Member, TaskComment, TaskSubtask} from '../types';
+import {ImageViewerModal} from '../components/ImageViewerModal';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 type Route = RouteProp<MainStackParamList, 'TaskDetail'>;
@@ -74,6 +76,32 @@ export default function TaskDetailScreen() {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+
+  const evidenceImageUrls = React.useMemo(() => {
+    if (!task.evidence_url) return [];
+    const urls = task.evidence_url
+      .split(/\n|,/)
+      .map(s => s.trim())
+      .filter(s => s.startsWith('http://') || s.startsWith('https://'));
+    return urls;
+  }, [task.evidence_url]);
+
+  const isImageEvidence = React.useMemo(() => {
+    if (evidenceImageUrls.length > 0) {
+      const first = evidenceImageUrls[0].toLowerCase();
+      return (
+        first.endsWith('.png') ||
+        first.endsWith('.jpg') ||
+        first.endsWith('.jpeg') ||
+        first.endsWith('.gif') ||
+        first.endsWith('.webp') ||
+        first.endsWith('.svg') ||
+        task.evidence_meta?.type === 'image'
+      );
+    }
+    return false;
+  }, [evidenceImageUrls, task.evidence_meta]);
 
   const assignee = members.find((m: Member) => m.uid === task.assigned_to_id);
   const reviewer = members.find((m: Member) => m.uid === task.assigned_reviewer_id);
@@ -400,12 +428,39 @@ export default function TaskDetailScreen() {
 
         {/* Evidence Section */}
         {task.evidence_url ? (
-          <TouchableOpacity style={styles.evidenceBox} onPress={openEvidenceUrl}>
-            <Text style={styles.evidenceLabel}>Evidence URL ↗</Text>
-            <Text style={styles.evidenceUrl} numberOfLines={2}>
-              {task.evidence_url}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.evidenceBox}>
+            <View style={styles.evidenceHeaderRow}>
+              <Text style={styles.evidenceLabel}>
+                {isImageEvidence ? '🖼️ Bukti Tangkapan Layar / Foto' : '🔗 Evidence URL ↗'}
+              </Text>
+              <TouchableOpacity onPress={openEvidenceUrl}>
+                <Text style={styles.openLinkText}>Buka Link ↗</Text>
+              </TouchableOpacity>
+            </View>
+
+            {isImageEvidence && evidenceImageUrls.length > 0 ? (
+              <TouchableOpacity
+                style={styles.imagePreviewWrap}
+                onPress={() => setShowImageViewer(true)}>
+                <Image
+                  source={{uri: evidenceImageUrls[0]}}
+                  style={styles.evidenceImagePreview}
+                  resizeMode="cover"
+                />
+                <View style={styles.imageOverlayBadge}>
+                  <Text style={styles.imageOverlayBadgeText}>
+                    🔍 Ketuk untuk Perbesar Foto ({evidenceImageUrls.length})
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={openEvidenceUrl}>
+                <Text style={styles.evidenceUrl} numberOfLines={2}>
+                  {task.evidence_url}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         ) : null}
 
         {/* Workflow Actions */}
@@ -493,6 +548,14 @@ export default function TaskDetailScreen() {
           <ActivityIndicator color={Colors.blue} style={{marginTop: Spacing.base}} />
         )}
       </ScrollView>
+
+      {/* Fullscreen Interactive Photo Viewer Modal */}
+      <ImageViewerModal
+        visible={showImageViewer}
+        imageUrls={evidenceImageUrls}
+        onClose={() => setShowImageViewer(false)}
+        title={`Bukti Foto · ${task.title}`}
+      />
     </SafeAreaView>
   );
 }
@@ -624,16 +687,57 @@ const styles = StyleSheet.create({
     padding: Spacing.base,
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: 4,
+    gap: Spacing.xs,
+  },
+  evidenceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   evidenceLabel: {
     fontSize: Typography.xs,
     color: Colors.blueLight,
     fontWeight: Typography.bold,
   },
+  openLinkText: {
+    fontSize: Typography.xs,
+    color: Colors.text3,
+    fontWeight: Typography.medium,
+  },
   evidenceUrl: {
     fontSize: Typography.sm,
     color: Colors.text1,
+  },
+  imagePreviewWrap: {
+    width: '100%',
+    height: 180,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    backgroundColor: Colors.bg0,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginTop: 4,
+    position: 'relative',
+  },
+  evidenceImagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlayBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  imageOverlayBadgeText: {
+    color: Colors.white,
+    fontSize: Typography.xs,
+    fontWeight: Typography.bold,
   },
   actions: {gap: Spacing.sm},
   btnPrimary: {

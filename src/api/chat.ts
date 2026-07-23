@@ -20,6 +20,8 @@ export const chatApi = {
       timestamp: row.created_at,
       edited: row.edited,
       reply_to: row.reply_to,
+      reply_to_sender: row.reply_to_sender,
+      reply_to_body: row.reply_to_body,
       reactions: row.reactions,
     })) as ChatMessage[];
   },
@@ -29,14 +31,16 @@ export const chatApi = {
     body: string,
     senderUid: string,
     senderName: string,
-    replyTo?: string,
+    replyToMeta?: {message_id: string; sender_name: string; message_body: string},
   ): Promise<void> {
     const {error} = await supabaseAdmin.from('messages').insert({
       room_id: roomId,
       sender_id: senderUid,
       sender_name: senderName,
       message_body: body,
-      reply_to: replyTo ?? null,
+      reply_to: replyToMeta?.message_id ?? null,
+      reply_to_sender: replyToMeta?.sender_name ?? null,
+      reply_to_body: replyToMeta?.message_body ?? null,
     });
 
     if (error) throw new Error(error.message);
