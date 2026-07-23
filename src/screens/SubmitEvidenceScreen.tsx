@@ -25,7 +25,9 @@ import {
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
+import {launchImageLibrary, launchCamera} from 'react-native-image-picker';
 import {taskApi} from '../api/tasks';
+import {uploadEvidencePhoto} from '../api/storage';
 import {useAuthContext} from '../store/auth';
 import {Colors} from '../theme/colors';
 import {Typography} from '../theme/typography';
@@ -58,6 +60,73 @@ export default function SubmitEvidenceScreen() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handlePickGallery = async () => {
+    try {
+      const res = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+        includeBase64: true,
+      });
+
+      if (res.didCancel || !res.assets || res.assets.length === 0) return;
+      const asset = res.assets[0];
+      if (!asset.base64) {
+        setError('Gagal membaca data gambar dari galeri');
+        return;
+      }
+
+      setUploadingImage(true);
+      setError('');
+
+      const publicUrl = await uploadEvidencePhoto(
+        task.id,
+        asset.base64,
+        asset.fileName || 'evidence.jpg',
+        asset.type || 'image/jpeg',
+      );
+
+      setImageInput(prev => (prev.trim() ? `${prev.trim()}\n${publicUrl}` : publicUrl));
+    } catch (e: any) {
+      setError(e.message || 'Gagal mengunggah foto bukti');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handlePickCamera = async () => {
+    try {
+      const res = await launchCamera({
+        mediaType: 'photo',
+        quality: 0.8,
+        includeBase64: true,
+      });
+
+      if (res.didCancel || !res.assets || res.assets.length === 0) return;
+      const asset = res.assets[0];
+      if (!asset.base64) {
+        setError('Gagal mengambil foto dari kamera');
+        return;
+      }
+
+      setUploadingImage(true);
+      setError('');
+
+      const publicUrl = await uploadEvidencePhoto(
+        task.id,
+        asset.base64,
+        asset.fileName || 'evidence_camera.jpg',
+        asset.type || 'image/jpeg',
+      );
+
+      setImageInput(prev => (prev.trim() ? `${prev.trim()}\n${publicUrl}` : publicUrl));
+    } catch (e: any) {
+      setError(e.message || 'Gagal mengunggah foto kamera');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   // Extract preview image URLs
   const imageUrls = useMemo(() => {
@@ -237,14 +306,40 @@ export default function SubmitEvidenceScreen() {
 
         {evidenceType === 'image' && (
           <>
-            <Text style={styles.fieldLabel}>
-              Link Gambar Bukti (Pisahkan dengan koma atau enter) *
+            <Text style={styles.fieldLabel}>Upload File Gambar / Screenshot Bukti *</Text>
+            <View style={styles.imagePickerRow}>
+              <TouchableOpacity
+                style={[styles.pickerBtn, uploadingImage && {opacity: 0.5}]}
+                onPress={handlePickGallery}
+                disabled={uploadingImage}>
+                <Text style={styles.pickerBtnText}>Pilih Foto Galeri</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.pickerBtn, uploadingImage && {opacity: 0.5}]}
+                onPress={handlePickCamera}
+                disabled={uploadingImage}>
+                <Text style={styles.pickerBtnText}>Ambil Foto Kamera</Text>
+              </TouchableOpacity>
+            </View>
+
+            {uploadingImage && (
+              <View style={styles.uploadingStatus}>
+                <ActivityIndicator color={Colors.blue} size="small" />
+                <Text style={styles.uploadingStatusText}>
+                  Mengunggah foto ke Supabase Storage...
+                </Text>
+              </View>
+            )}
+
+            <Text style={[styles.fieldLabel, {marginTop: Spacing.md}]}>
+              URL Gambar Bukti (Hasil Upload / Link Manual) *
             </Text>
             <TextInput
               style={[styles.input, styles.textarea]}
               value={imageInput}
               onChangeText={setImageInput}
-              placeholder="https://.../screenshot-1.png&#10;https://.../screenshot-2.jpg"
+              placeholder="URL foto tersimpan otomatis di sini setelah di-upload..."
               placeholderTextColor={Colors.text3}
               multiline
               numberOfLines={3}
@@ -404,6 +499,41 @@ const styles = StyleSheet.create({
     fontSize: Typography.base,
   },
   textarea: {height: 90, paddingTop: Spacing.md},
+  imagePickerRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: 4,
+  },
+  pickerBtn: {
+    flex: 1,
+    backgroundColor: Colors.bg3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerBtnText: {
+    color: Colors.blueLight,
+    fontSize: Typography.sm,
+    fontWeight: Typography.semibold,
+  },
+  uploadingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+    padding: Spacing.sm,
+    backgroundColor: Colors.bg3,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  uploadingStatusText: {
+    color: Colors.text2,
+    fontSize: Typography.xs,
+  },
   previewGrid: {
     marginTop: Spacing.xs,
     gap: 4,
