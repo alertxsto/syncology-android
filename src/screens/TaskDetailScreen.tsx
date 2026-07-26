@@ -256,7 +256,6 @@ export default function TaskDetailScreen() {
         actorName: user?.displayName ?? '',
       });
       setTask(prev => ({...prev, status: 'completed'}));
-      setTask(prev => ({...prev, status: 'completed'}));
       Alert.alert('Berhasil', 'Tugas diselesaikan!');
     } catch (e: any) {
       Alert.alert('Gagal', e.message);

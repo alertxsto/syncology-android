@@ -240,21 +240,19 @@ export default function TasksTab({room, role, members}: Props) {
         </ScrollView>
       </View>
 
-      {/* Propose Action Banner / FAB */}
-      {role === 'leader' ? (
-        <TouchableOpacity
-          style={styles.proposeBar}
-          onPress={() =>
-            nav.navigate('ProposeTask', {
-              roomId: room.id,
-              members,
-              myUid: user?.uid ?? '',
-              myMemberId,
-            })
-          }>
-          <Text style={styles.proposeBarLabel}>+ Usulkan Tugas Baru</Text>
-        </TouchableOpacity>
-      ) : null}
+      {/* Propose Action Banner */}
+      <TouchableOpacity
+        style={styles.proposeBar}
+        onPress={() =>
+          nav.navigate('ProposeTask', {
+            roomId: room.id,
+            members,
+            myUid: user?.uid ?? '',
+            myMemberId,
+          })
+        }>
+        <Text style={styles.proposeBarLabel}>+ Usulkan Tugas Baru</Text>
+      </TouchableOpacity>
 
       {/* Task List / Calendar View */}
       {viewMode === 'list' ? (

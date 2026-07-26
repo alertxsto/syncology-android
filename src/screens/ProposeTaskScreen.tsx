@@ -153,7 +153,7 @@ export default function ProposeTaskScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {error ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
@@ -276,7 +276,30 @@ export default function ProposeTaskScreen() {
               : 'Ketuk untuk Pilih Deadline Kalender...'}
           </Text>
         </TouchableOpacity>
+
+        {/* Spacer agar konten tidak tertutup sticky footer */}
+        <View style={{height: 20}} />
       </ScrollView>
+
+      {/* Sticky Bottom Submit Button */}
+      <View style={styles.stickyFooter}>
+        {error ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+        <TouchableOpacity
+          style={[styles.submitFooterBtn, loading && {opacity: 0.6}]}
+          onPress={handleSubmit}
+          disabled={loading}
+          activeOpacity={0.85}>
+          {loading ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={styles.submitFooterBtnText}>Usulkan Tugas →</Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
       {/* Interactive Calendar Popup Modal */}
       <CalendarPickerModal
@@ -312,7 +335,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.base,
     fontWeight: Typography.bold,
   },
-  content: {padding: Spacing.base, gap: Spacing.xs, paddingBottom: 60},
+  content: {padding: Spacing.base, gap: Spacing.sm, paddingBottom: 20},
   recommendationBanner: {
     backgroundColor: 'rgba(34,197,94,0.1)',
     borderWidth: 1,
@@ -363,6 +386,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.xs,
+    rowGap: Spacing.xs,
   },
   memberChip: {
     paddingHorizontal: Spacing.md,
@@ -371,6 +395,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bg3,
     borderWidth: 1,
     borderColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   memberChipActive: {
     backgroundColor: 'rgba(59,130,246,0.15)',
@@ -436,6 +463,33 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.redBorder,
+    marginBottom: Spacing.xs,
   },
   errorText: {color: Colors.red, fontSize: Typography.sm},
+  stickyFooter: {
+    backgroundColor: Colors.bg1,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.base,
+  },
+  submitFooterBtn: {
+    backgroundColor: Colors.blue,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: Colors.blue,
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  submitFooterBtnText: {
+    color: Colors.white,
+    fontSize: Typography.base,
+    fontWeight: Typography.bold,
+    letterSpacing: 0.3,
+  },
 });

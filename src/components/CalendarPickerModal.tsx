@@ -70,6 +70,8 @@ export function CalendarPickerModal({
 
   const [currentYear, setCurrentYear] = useState(initialDate.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth());
+  // Internal selection state — only committed when user taps Konfirmasi
+  const [internalSelected, setInternalSelected] = useState(selectedDate || '');
 
   const daysInMonth = useMemo(() => {
     const date = new Date(currentYear, currentMonth, 1);
@@ -136,9 +138,30 @@ export function CalendarPickerModal({
     const target = new Date();
     target.setDate(target.getDate() + daysToAdd);
     const dateStr = formatDateStr(target);
-    onSelectDate(dateStr);
+    setInternalSelected(dateStr);
+    // Navigate kalender ke bulan tanggal yang dipilih
+    setCurrentYear(target.getFullYear());
+    setCurrentMonth(target.getMonth());
+  };
+
+  const handleConfirm = () => {
+    if (internalSelected) {
+      onSelectDate(internalSelected);
+    }
     onClose();
   };
+
+  // Sync internal state ketika modal dibuka ulang dengan selectedDate berbeda
+  React.useEffect(() => {
+    if (visible) {
+      setInternalSelected(selectedDate || '');
+      if (selectedDate && !isNaN(Date.parse(selectedDate))) {
+        const d = new Date(selectedDate);
+        setCurrentYear(d.getFullYear());
+        setCurrentMonth(d.getMonth());
+      }
+    }
+  }, [visible, selectedDate]);
 
   const todayStr = formatDateStr(new Date());
 
@@ -200,7 +223,7 @@ export function CalendarPickerModal({
           {/* Grid */}
           <View style={styles.grid}>
             {daysInMonth.map((item, index) => {
-              const isSelected = selectedDate === item.dateStr;
+              const isSelected = internalSelected === item.dateStr;
               const isToday = todayStr === item.dateStr;
 
               return (
@@ -212,8 +235,8 @@ export function CalendarPickerModal({
                     isToday && !isSelected && styles.dayCellToday,
                   ]}
                   onPress={() => {
-                    onSelectDate(item.dateStr);
-                    onClose();
+                    // Simpan ke internal state, TIDAK langsung menutup modal
+                    setInternalSelected(item.dateStr);
                   }}>
                   <Text
                     style={[
@@ -229,13 +252,13 @@ export function CalendarPickerModal({
             })}
           </View>
 
-          {/* Footer Info */}
+          {/* Footer Info + Confirm Button */}
           <View style={styles.footer}>
             <Text style={styles.selectedLabel}>
               Terpilih:{' '}
               <Text style={styles.selectedValue}>
-                {selectedDate
-                  ? new Date(selectedDate).toLocaleDateString('id-ID', {
+                {internalSelected
+                  ? new Date(internalSelected).toLocaleDateString('id-ID', {
                       weekday: 'long',
                       day: 'numeric',
                       month: 'long',
@@ -244,6 +267,18 @@ export function CalendarPickerModal({
                   : 'Belum dipilih'}
               </Text>
             </Text>
+            <TouchableOpacity
+              style={[
+                styles.confirmBtn,
+                !internalSelected && styles.confirmBtnDisabled,
+              ]}
+              onPress={handleConfirm}
+              disabled={!internalSelected}
+              activeOpacity={0.85}>
+              <Text style={styles.confirmBtnText}>
+                {internalSelected ? 'Konfirmasi Tanggal →' : 'Pilih tanggal dulu'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -263,8 +298,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
   },
   card: {
-    width: '100%',
-    maxWidth: 360,
+    width: '95%',
+    maxWidth: 400,
     backgroundColor: Colors.bg2,
     borderRadius: Radius.lg,
     borderWidth: 1,
@@ -385,14 +420,32 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-    alignItems: 'center',
+    gap: Spacing.sm,
   },
   selectedLabel: {
     fontSize: Typography.xs,
     color: Colors.text3,
+    textAlign: 'center',
   },
   selectedValue: {
     color: Colors.blueLight,
     fontWeight: Typography.semibold,
+  },
+  confirmBtn: {
+    backgroundColor: Colors.blue,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+  },
+  confirmBtnDisabled: {
+    backgroundColor: Colors.bg4,
+    elevation: 0,
+  },
+  confirmBtnText: {
+    color: Colors.white,
+    fontSize: Typography.base,
+    fontWeight: Typography.bold,
   },
 });

@@ -201,7 +201,7 @@ export default function SubmitEvidenceScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {/* Task Info Box */}
         <View style={styles.taskInfo}>
           <Text style={styles.taskInfoLabel}>Tugas</Text>
@@ -393,7 +393,30 @@ export default function SubmitEvidenceScreen() {
           Setelah dikirim, tugas akan berpindah ke status "Menunggu Review".
           Reviewer akan memeriksa bukti pengerjaan kamu.
         </Text>
+
+        {/* Spacer agar tidak tertutup sticky footer */}
+        <View style={{height: 20}} />
       </ScrollView>
+
+      {/* Sticky Bottom Submit Button */}
+      <View style={styles.stickyFooter}>
+        {error ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+        <TouchableOpacity
+          style={[styles.submitFooterBtn, loading && {opacity: 0.6}]}
+          onPress={handleSubmit}
+          disabled={loading}
+          activeOpacity={0.85}>
+          {loading ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={styles.submitFooterBtnText}>Kirim Bukti Pekerjaan →</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -420,7 +443,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.base,
     fontWeight: Typography.bold,
   },
-  content: {padding: Spacing.base, gap: Spacing.xs, paddingBottom: 60},
+  content: {padding: Spacing.base, gap: Spacing.xs, paddingBottom: 20},
   taskInfo: {
     backgroundColor: Colors.bg3,
     borderRadius: Radius.md,
@@ -561,6 +584,7 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.redBorder,
+    marginBottom: Spacing.xs,
   },
   errorText: {color: Colors.red, fontSize: Typography.sm},
   hintText: {
@@ -568,5 +592,31 @@ const styles = StyleSheet.create({
     color: Colors.text3,
     lineHeight: 18,
     marginTop: Spacing.base,
+  },
+  stickyFooter: {
+    backgroundColor: Colors.bg1,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.base,
+  },
+  submitFooterBtn: {
+    backgroundColor: Colors.blue,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: Colors.blue,
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  submitFooterBtnText: {
+    color: Colors.white,
+    fontSize: Typography.base,
+    fontWeight: Typography.bold,
+    letterSpacing: 0.3,
   },
 });
